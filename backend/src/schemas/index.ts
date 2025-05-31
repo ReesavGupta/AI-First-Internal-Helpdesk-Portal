@@ -252,3 +252,56 @@ export const validateParams = (schema: z.ZodSchema) => {
     }
   }
 }
+
+export const PaginationInput = z.object({
+  page: z
+    .preprocess(
+      (val) => (val === undefined ? 1 : Number(val)),
+      z.number().int().min(1).default(1)
+    )
+    .optional(),
+  limit: z
+    .preprocess(
+      (val) => (val === undefined ? 10 : Number(val)),
+      z.number().int().min(1).max(100).default(10)
+    )
+    .optional(),
+})
+
+export type PaginationInput = z.infer<typeof PaginationInput>
+
+export const notificationFiltersSchema = z.object({
+  page: z.string().optional().default('1'),
+  limit: z.string().optional().default('20'),
+  type: z
+    .enum([
+      'TICKET_CREATED',
+      'TICKET_ASSIGNED',
+      'TICKET_STATUS_UPDATED',
+      'TICKET_RESPONSE',
+      'SLA_WARNING',
+      'ASSIGNMENT',
+      'PATTERN_DETECTED',
+      'SYSTEM_NOTIFICATION',
+    ])
+    .optional(),
+  read: z.enum(['true', 'false']).optional(),
+  ticketId: z.string().cuid().optional(),
+})
+
+export const testNotificationSchema = z.object({
+  targetUserId: z.string().cuid(),
+  message: z.string().min(1).max(500),
+  type: z
+    .enum([
+      'TICKET_CREATED',
+      'TICKET_ASSIGNED',
+      'TICKET_STATUS_UPDATED',
+      'TICKET_RESPONSE',
+      'SLA_WARNING',
+      'ASSIGNMENT',
+      'PATTERN_DETECTED',
+      'SYSTEM_NOTIFICATION',
+    ])
+    .default('SYSTEM_NOTIFICATION'),
+})

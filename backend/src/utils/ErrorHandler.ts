@@ -1,6 +1,7 @@
 import { Request, Response, NextFunction } from 'express'
 import { ZodError } from 'zod'
 import { Prisma } from '../../prisma/generated/prisma'
+import { AuthenticatedRequest } from '../types/auth.types'
 
 export class ApiError extends Error {
   statusCode: number
@@ -43,6 +44,18 @@ export class ApiResponse<T = any> {
 export const asyncHandler = (fn: Function) => {
   return (req: Request, res: Response, next: NextFunction) => {
     Promise.resolve(fn(req, res, next)).catch(next)
+  }
+}
+export const authenticatedAsyncHandler = (
+  fn: (
+    req: AuthenticatedRequest,
+    res: Response,
+    next: NextFunction
+  ) => Promise<any>
+) => {
+  return (req: Request, res: Response, next: NextFunction) => {
+    // Cast to AuthenticatedRequest since authenticate middleware ensures user exists
+    Promise.resolve(fn(req as AuthenticatedRequest, res, next)).catch(next)
   }
 }
 

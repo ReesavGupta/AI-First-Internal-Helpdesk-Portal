@@ -179,14 +179,21 @@ exports.Prisma.NotificationScalarFieldEnum = {
   message: 'message',
   type: 'type',
   read: 'read',
+  readAt: 'readAt',
   targetUserId: 'targetUserId',
   ticketId: 'ticketId',
+  metadata: 'metadata',
   createdAt: 'createdAt'
 };
 
 exports.Prisma.SortOrder = {
   asc: 'asc',
   desc: 'desc'
+};
+
+exports.Prisma.NullableJsonNullValueInput = {
+  DbNull: Prisma.DbNull,
+  JsonNull: Prisma.JsonNull
 };
 
 exports.Prisma.QueryMode = {
@@ -197,6 +204,12 @@ exports.Prisma.QueryMode = {
 exports.Prisma.NullsOrder = {
   first: 'first',
   last: 'last'
+};
+
+exports.Prisma.JsonNullValueFilter = {
+  DbNull: Prisma.DbNull,
+  JsonNull: Prisma.JsonNull,
+  AnyNull: Prisma.AnyNull
 };
 exports.UserRole = exports.$Enums.UserRole = {
   EMPLOYEE: 'EMPLOYEE',
@@ -220,6 +233,17 @@ exports.TicketPriority = exports.$Enums.TicketPriority = {
 exports.FAQVisibility = exports.$Enums.FAQVisibility = {
   PUBLIC: 'PUBLIC',
   INTERNAL: 'INTERNAL'
+};
+
+exports.NotificationType = exports.$Enums.NotificationType = {
+  TICKET_CREATED: 'TICKET_CREATED',
+  TICKET_ASSIGNED: 'TICKET_ASSIGNED',
+  TICKET_STATUS_UPDATED: 'TICKET_STATUS_UPDATED',
+  TICKET_RESPONSE: 'TICKET_RESPONSE',
+  SLA_WARNING: 'SLA_WARNING',
+  ASSIGNMENT: 'ASSIGNMENT',
+  PATTERN_DETECTED: 'PATTERN_DETECTED',
+  SYSTEM_NOTIFICATION: 'SYSTEM_NOTIFICATION'
 };
 
 exports.Prisma.ModelName = {
