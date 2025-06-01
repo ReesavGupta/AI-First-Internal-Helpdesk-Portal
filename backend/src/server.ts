@@ -9,11 +9,11 @@ import { prisma } from '../prisma/client'
 import authRoutes from './routes/auth.routes'
 import ticketRoutes from './routes/tickets.routes'
 import departmentRoutes from './routes/department.routes'
-import faqRoutes from './routes/faqs'
-import notificationRoutes from './routes/notifications'
-import aiRoutes from './routes/ai'
-import searchRoutes from './routes/search'
-import analyticsRoutes from './routes/analytics'
+import faqRoutes from './routes/faq.routes'
+import notificationRoutes from './routes/notification.routes'
+import aiRoutes from './routes/ai.routes'
+// import searchRoutes from './routes/search.routes'
+// import analyticsRoutes from './routes/analytics' i do not want analytics
 
 // Import middleware
 import { errorHandler } from './utils/ErrorHandler'
@@ -86,8 +86,8 @@ app.use('/api/departments', departmentRoutes)
 app.use('/api/faqs', faqRoutes)
 app.use('/api/notifications', notificationRoutes)
 app.use('/api/ai', aiRoutes)
-app.use('/api/search', searchRoutes)
-app.use('/api/analytics', analyticsRoutes)
+// app.use('/api/search', searchRoutes)
+// app.use('/api/analytics', analyticsRoutes)
 
 // Error handling middleware
 app.use(notFound)

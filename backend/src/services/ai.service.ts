@@ -209,120 +209,6 @@ export const generateResponseSuggestions = async (
   }
 }
 
-// AI Answer Bot Service
-export const getAIAnswer = async (
-  question: string
-): Promise<{
-  answer: string
-  confidence: number
-  sources: string[]
-  suggestTicket: boolean
-}> => {
-  try {
-    // Search FAQs first
-    const faqs = await prisma.fAQ.findMany({
-      where: {
-        OR: [
-          { question: { contains: question, mode: 'insensitive' } },
-          { answer: { contains: question, mode: 'insensitive' } },
-          { tags: { hasSome: question.toLowerCase().split(' ') } },
-        ],
-      },
-      take: 5,
-    })
-
-    let answer = ''
-    let confidence = 0
-    let sources: string[] = []
-    let suggestTicket = false
-
-    if (faqs.length > 0) {
-      // Use FAQ-based response
-      const faqContext = faqs
-        .map((faq) => `Q: ${faq.question}\nA: ${faq.answer}`)
-        .join('\n\n')
-
-      const prompt = `
-Based on the following FAQ entries, answer the user's question:
-
-User Question: ${question}
-
-FAQ Entries:
-${faqContext}
-
-Instructions:
-1. If the FAQ entries directly answer the question, provide a clear answer
-2. If the FAQ entries are related but don't fully answer, provide what you can and suggest creating a ticket
-3. If the FAQ entries are not relevant, say so and suggest creating a ticket
-4. Keep the answer concise and helpful
-
-Answer:`
-
-      const completion = await openai.chat.completions.create({
-        model: 'gpt-3.5-turbo',
-        messages: [{ role: 'user', content: prompt }],
-        temperature: 0.3,
-        max_tokens: 300,
-      })
-
-      answer = completion.choices[0]?.message?.content?.trim() || ''
-      confidence = 0.8
-      sources = faqs.map((faq) => `FAQ: ${faq.question}`)
-    } else {
-      // Use general AI knowledge
-      const prompt = `
-Answer the following question in a helpful and professional manner for an internal helpdesk context:
-
-Question: ${question}
-
-Instructions:
-1. Provide a helpful answer if you can
-2. If the question is too specific to the organization, suggest creating a support ticket
-3. Keep the answer concise and professional
-4. If you're not confident about the answer, be honest about limitations
-
-Answer:`
-
-      const completion = await openai.chat.completions.create({
-        model: 'gpt-3.5-turbo',
-        messages: [{ role: 'user', content: prompt }],
-        temperature: 0.5,
-        max_tokens: 300,
-      })
-
-      answer = completion.choices[0]?.message?.content?.trim() || ''
-      confidence = 0.6
-      sources = ['AI General Knowledge']
-      suggestTicket = true
-    }
-
-    // Determine if we should suggest creating a ticket
-    if (
-      confidence < 0.7 ||
-      answer.toLowerCase().includes('create a ticket') ||
-      answer.toLowerCase().includes('contact support')
-    ) {
-      suggestTicket = true
-    }
-
-    return {
-      answer,
-      confidence,
-      sources,
-      suggestTicket,
-    }
-  } catch (error) {
-    console.error('AI answer bot failed:', error)
-    return {
-      answer:
-        "I apologize, but I'm having trouble processing your question right now. Please try creating a support ticket for assistance.",
-      confidence: 0,
-      sources: [],
-      suggestTicket: true,
-    }
-  }
-}
-
 // Pattern Detection Service
 export const detectPatterns = async (): Promise<PatternInsight[]> => {
   const insights: PatternInsight[] = []
@@ -346,11 +232,11 @@ export const detectPatterns = async (): Promise<PatternInsight[]> => {
           },
         },
       },
-    });
+    })
 
-    const repetitiveUserIds = repetitiveUsersGroup.map((g) => g.createdById);
+    const repetitiveUserIds = repetitiveUsersGroup.map((g) => g.createdById)
 
-    let repetitiveUsers: any[] = [];
+    let repetitiveUsers: any[] = []
     if (repetitiveUserIds.length > 0) {
       repetitiveUsers = await prisma.user.findMany({
         where: {
@@ -361,16 +247,18 @@ export const detectPatterns = async (): Promise<PatternInsight[]> => {
           name: true,
           email: true,
         },
-      });
+      })
 
       // Attach ticketCount to each user
       repetitiveUsers = repetitiveUsers.map((user) => {
-        const group = repetitiveUsersGroup.find((g) => g.createdById === user.id);
+        const group = repetitiveUsersGroup.find(
+          (g) => g.createdById === user.id
+        )
         return {
           ...user,
           ticketCount: group ? group._count.createdById : 0,
-        };
-      });
+        }
+      })
 
       insights.push({
         type: 'repetitive_user',
@@ -378,7 +266,7 @@ export const detectPatterns = async (): Promise<PatternInsight[]> => {
         severity: repetitiveUsers.length > 5 ? 'high' : 'medium',
         data: repetitiveUsers,
         detectedAt: new Date(),
-      });
+      })
     }
 
     // Detect common tags
@@ -650,6 +538,190 @@ Response:`
     console.error('Failed to generate general AI suggestion:', error)
     return null
   }
+}
+
+export const getAIAnswer = async (
+  question: string
+): Promise<{
+  answer: string
+  confidence: number
+  sources: string[]
+  suggestTicket: boolean
+}> => {
+  try {
+    // Search both FAQs and Documents in parallel
+    const [faqs, documents] = await Promise.all([
+      searchFAQs(question),
+      searchDocuments(question),
+    ])
+
+    let answer = ''
+    let confidence = 0
+    let sources: string[] = []
+    let suggestTicket = false
+
+    if (faqs.length > 0 || documents.length > 0) {
+      // Combine FAQ and document context
+      const faqContext = faqs
+        .map((faq) => `Q: ${faq.question}\nA: ${faq.answer}`)
+        .join('\n\n')
+
+      const docContext = documents
+        .map(
+          (doc) =>
+            `Document: ${doc.title}\nContent: ${doc.content.substring(
+              0,
+              500
+            )}...`
+        )
+        .join('\n\n---\n\n')
+
+      const combinedContext = [faqContext, docContext]
+        .filter(Boolean)
+        .join('\n\n===DOCUMENT SEPARATOR===\n\n')
+
+      const prompt = `
+Based on the following company FAQs and internal documents, answer the user's question:
+
+User Question: ${question}
+
+Available Information:
+${combinedContext}
+
+Instructions:
+1. Provide a clear, helpful answer using the available information
+2. If the information directly answers the question, provide a complete response
+3. If the information is related but incomplete, provide what you can and suggest creating a ticket for more specific help
+4. If no relevant information is found, politely say so and suggest creating a support ticket
+5. Be professional and concise
+6. Reference which source(s) you used (FAQ vs Company Document)
+
+Answer:`
+
+      const completion = await openai.chat.completions.create({
+        model: 'gpt-3.5-turbo',
+        messages: [{ role: 'user', content: prompt }],
+        temperature: 0.3,
+        max_tokens: 400,
+      })
+
+      answer = completion.choices[0]?.message?.content?.trim() || ''
+
+      // Calculate confidence based on available sources
+      if (faqs.length > 0 && documents.length > 0) {
+        confidence = 0.9 // High confidence with both sources
+      } else if (faqs.length > 0 || documents.length > 0) {
+        confidence = 0.8 // Good confidence with one source
+      } else {
+        confidence = 0.6 // Lower confidence
+      }
+
+      // Build sources array
+      sources = [
+        ...faqs.map((faq) => `FAQ: ${faq.question}`),
+        ...documents.map((doc) => `Document: ${doc.title}`),
+      ]
+    } else {
+      // Fallback to general AI knowledge
+      const prompt = `
+Answer the following question in a helpful and professional manner for an internal company helpdesk context:
+
+Question: ${question}
+
+Instructions:
+1. Provide a helpful general answer if possible
+2. If the question is company-specific, suggest creating a support ticket
+3. Keep the answer professional and concise
+4. Be honest about limitations
+
+Answer:`
+
+      const completion = await openai.chat.completions.create({
+        model: 'gpt-3.5-turbo',
+        messages: [{ role: 'user', content: prompt }],
+        temperature: 0.5,
+        max_tokens: 300,
+      })
+
+      answer = completion.choices[0]?.message?.content?.trim() || ''
+      confidence = 0.5
+      sources = ['AI General Knowledge']
+      suggestTicket = true
+    }
+
+    // Determine if we should suggest creating a ticket
+    if (
+      confidence < 0.7 ||
+      answer.toLowerCase().includes('create a ticket') ||
+      answer.toLowerCase().includes('contact support') ||
+      answer.toLowerCase().includes('not enough information')
+    ) {
+      suggestTicket = true
+    }
+
+    return {
+      answer,
+      confidence,
+      sources,
+      suggestTicket,
+    }
+  } catch (error) {
+    console.error('AI answer bot failed:', error)
+    return {
+      answer:
+        "I apologize, but I'm having trouble processing your question right now. Please try creating a support ticket for assistance.",
+      confidence: 0,
+      sources: [],
+      suggestTicket: true,
+    }
+  }
+}
+
+// Helper function to search FAQs
+async function searchFAQs(question: string) {
+  const keywords = question
+    .toLowerCase()
+    .split(' ')
+    .filter((word) => word.length > 2)
+
+  return await prisma.fAQ.findMany({
+    where: {
+      visibility: 'PUBLIC', // or adjust based on user permissions
+      OR: [
+        { question: { contains: question, mode: 'insensitive' } },
+        { answer: { contains: question, mode: 'insensitive' } },
+        { tags: { hasSome: keywords } },
+      ],
+    },
+    take: 3,
+  })
+}
+
+// Helper function to search documents
+async function searchDocuments(question: string) {
+  const keywords = question
+    .toLowerCase()
+    .split(' ')
+    .filter((word) => word.length > 2)
+
+  return await prisma.document.findMany({
+    where: {
+      isActive: true,
+      OR: [
+        { title: { contains: question, mode: 'insensitive' } },
+        { content: { contains: question, mode: 'insensitive' } },
+        { tags: { hasSome: keywords } },
+      ],
+    },
+    select: {
+      id: true,
+      title: true,
+      content: true,
+      category: true,
+      tags: true,
+    },
+    take: 3,
+  })
 }
 
 // Export types for use in controllers

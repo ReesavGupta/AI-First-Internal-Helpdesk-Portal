@@ -157,3 +157,20 @@ model Notification {
   @@index([type])
   @@map("notifications")
 }
+
+model Document {
+  id        String   @id @default(cuid())
+  title     String
+  content   String // Full document content
+  category  String // e.g., "HR", "IT", "Finance", "General"
+  tags      String[] // For better search
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Indexes for better search performance
+  @@index([category])
+  @@index([isActive])
+  @@index([title])
+  @@map("documents")
+}

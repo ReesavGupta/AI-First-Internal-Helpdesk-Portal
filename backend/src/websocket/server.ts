@@ -1,7 +1,7 @@
 // src/websocket/server.ts (Fixed version)
 import { Server } from 'http'
 import { WebSocketServer } from 'ws'
-import { WebSocketManager } from './WebSocketManager'
+import { WebSocketManager } from './WebsocketManager'
 import { initializeNotificationService } from '../services/notification.service'
 
 let wsManager: WebSocketManager

@@ -186,6 +186,17 @@ exports.Prisma.NotificationScalarFieldEnum = {
   createdAt: 'createdAt'
 };
 
+exports.Prisma.DocumentScalarFieldEnum = {
+  id: 'id',
+  title: 'title',
+  content: 'content',
+  category: 'category',
+  tags: 'tags',
+  isActive: 'isActive',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+};
+
 exports.Prisma.SortOrder = {
   asc: 'asc',
   desc: 'desc'
@@ -252,7 +263,8 @@ exports.Prisma.ModelName = {
   Ticket: 'Ticket',
   TicketResponse: 'TicketResponse',
   FAQ: 'FAQ',
-  Notification: 'Notification'
+  Notification: 'Notification',
+  Document: 'Document'
 };
 
 /**
