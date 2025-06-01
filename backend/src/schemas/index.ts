@@ -199,6 +199,12 @@ export const idParamSchema = z.object({
   id: z.string().cuid('Invalid ID format'),
 })
 
+// Assign ticket parameter validation
+export const assignTicketParamsSchema = z.object({
+  id: z.string().cuid('Invalid ticket ID format'),
+  agentId: z.string().cuid('Invalid agent ID format'),
+})
+
 // Utility type extractors
 export type UserRegistrationInput = z.infer<typeof userRegistrationSchema>
 export type UserLoginInput = z.infer<typeof userLoginSchema>
@@ -234,7 +240,13 @@ export const validateBody = (schema: z.ZodSchema) => {
 export const validateQuery = (schema: z.ZodSchema) => {
   return (req: any, res: any, next: any) => {
     try {
-      req.query = schema.parse(req.query)
+      const validatedQuery = schema.parse(req.query)
+      // Clear existing req.query properties (optional, but recommended for safety)
+      for (const key in req.query) {
+        delete req.query[key]
+      }
+      // Assign validated properties back to req.query
+      Object.assign(req.query, validatedQuery)
       next()
     } catch (error) {
       next(error)

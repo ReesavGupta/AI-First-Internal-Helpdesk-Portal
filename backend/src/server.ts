@@ -48,14 +48,14 @@ app.use(
   })
 )
 
-// Rate limiting
-const limiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 100, // Limit each IP to 100 requests per windowMs
-  message: 'Too many requests from this IP, please try again later.',
-})
+// // Rate limiting
+// const limiter = rateLimit({
+//   windowMs: 15 * 60 * 1000, // 15 minutes
+//   max: 100, // Limit each IP to 100 requests per windowMs
+//   message: 'Too many requests from this IP, please try again later.',
+// })
 
-app.use('/api/', limiter)
+// app.use('/api/', limiter)
 
 // Special rate limiting for AI endpoints
 const aiLimiter = rateLimit({
@@ -83,7 +83,7 @@ app.get('/health', (req, res) => {
 app.use('/api/auth', authRoutes)
 app.use('/api/tickets', ticketRoutes)
 app.use('/api/departments', departmentRoutes)
-app.use('/api/faqs', faqRoutes)
+app.use('/api/faq', faqRoutes)
 app.use('/api/notifications', notificationRoutes)
 app.use('/api/ai', aiRoutes)
 // app.use('/api/search', searchRoutes)

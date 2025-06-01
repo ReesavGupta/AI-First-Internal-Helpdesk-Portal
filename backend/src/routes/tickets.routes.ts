@@ -31,6 +31,7 @@ import {
   createTicketResponseSchema,
   ticketFiltersSchema,
   idParamSchema,
+  assignTicketParamsSchema,
 } from '../schemas'
 
 const router = express.Router()
@@ -108,7 +109,7 @@ router.patch(
   '/:id/assign/:agentId',
   authenticate,
   requireAgent,
-  validateParams(idParamSchema),
+  validateParams(assignTicketParamsSchema),
   assignTicket
 )
 

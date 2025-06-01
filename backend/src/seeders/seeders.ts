@@ -1,5 +1,6 @@
 // src/seeders/documentSeeder.ts
 import { prisma } from '../../prisma/client'
+import { FAQVisibility } from '../../prisma/generated/prisma'
 
 const predefinedDocuments = [
   {
@@ -212,6 +213,51 @@ const predefinedDocuments = [
   },
 ]
 
+const predefinedFAQs = [
+  {
+    question: 'How do I reset my password?',
+    answer:
+      'To reset your password:\n1. Click on "Forgot Password" on the login page\n2. Enter your email address\n3. Check your email for reset instructions\n4. Follow the link and create a new password',
+    tags: ['password', 'login', 'account'],
+    visibility: FAQVisibility.PUBLIC,
+  },
+  {
+    question: 'How do I submit a new IT support ticket?',
+    answer:
+      '1. Log into the helpdesk portal\n2. Click "New Ticket"\n3. Fill in the ticket details including title and description\n4. Add any relevant attachments\n5. Click Submit',
+    tags: ['ticket', 'support', 'help'],
+    visibility: FAQVisibility.PUBLIC,
+  },
+  {
+    question: 'What are the working hours for IT support?',
+    answer:
+      'IT support is available:\n- Monday to Friday: 9:00 AM - 5:00 PM\n- Emergency support available 24/7 for critical issues\n- Weekend support by appointment only',
+    tags: ['support', 'hours', 'schedule'],
+    visibility: FAQVisibility.PUBLIC,
+  },
+  {
+    question: 'How long does it typically take to resolve a ticket?',
+    answer:
+      'Resolution times vary by priority:\n- High: 4 hours\n- Medium: 24 hours\n- Low: 48-72 hours\nThese are target times and actual resolution may vary based on complexity.',
+    tags: ['ticket', 'resolution', 'sla'],
+    visibility: FAQVisibility.PUBLIC,
+  },
+  {
+    question: 'What information should I include in a ticket?',
+    answer:
+      'For fastest resolution, include:\n1. Clear description of the issue\n2. Steps to reproduce the problem\n3. Error messages (if any)\n4. Screenshots (when applicable)\n5. When the issue started\n6. Impact on your work',
+    tags: ['ticket', 'help', 'support'],
+    visibility: FAQVisibility.PUBLIC,
+  },
+  {
+    question: '[INTERNAL] Common Ticket Resolution Steps',
+    answer:
+      '1. Initial triage within 15 minutes\n2. Categorize and assign priority\n3. Basic troubleshooting steps\n4. Escalate if needed\n5. Document solution\n6. Follow up with user',
+    tags: ['internal', 'process', 'support'],
+    visibility: FAQVisibility.INTERNAL,
+  },
+]
+
 export const seedDocuments = async () => {
   try {
     console.log('🌱 Seeding predefined documents...')
@@ -236,9 +282,33 @@ export const seedDocuments = async () => {
   }
 }
 
+export const seedFAQs = async () => {
+  try {
+    console.log('🌱 Seeding predefined FAQs...')
+
+    // Clear existing FAQs (optional)
+    await prisma.fAQ.deleteMany({})
+
+    // Insert predefined FAQs
+    const createdFAQs = await prisma.fAQ.createMany({
+      data: predefinedFAQs,
+      skipDuplicates: true,
+    })
+
+    console.log(`✅ Successfully seeded ${createdFAQs.count} FAQs`)
+
+    // Verify the seeding
+    const totalFAQs = await prisma.fAQ.count()
+    console.log(`❓ Total FAQs in database: ${totalFAQs}`)
+  } catch (error) {
+    console.error('❌ Error seeding FAQs:', error)
+    throw error
+  }
+}
+
 // Run if called directly
 if (require.main === module) {
-  seedDocuments()
+  Promise.all([seedDocuments(), seedFAQs()])
     .catch(console.error)
     .finally(() => prisma.$disconnect())
 }

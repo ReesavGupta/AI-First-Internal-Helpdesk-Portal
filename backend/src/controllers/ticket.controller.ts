@@ -12,6 +12,11 @@ import { Prisma } from '../../prisma/generated/prisma'
 import { assignTicketByAI } from '../services/ai.service'
 import { getNotificationService } from '../services/notification.service'
 
+interface AssignTicketParams {
+  id: string
+  agentId: string
+}
+
 export const createTicket = asyncHandler(
   async (req: Request<{}, {}, CreateTicketInput>, res: Response) => {
     const { title, description, priority, tags, fileUrls, departmentId } =
@@ -121,8 +126,6 @@ export const createTicket = asyncHandler(
 export const getTickets = asyncHandler(
   async (req: Request<{}, {}, {}, TicketFiltersInput>, res: Response) => {
     const {
-      page,
-      limit,
       status,
       priority,
       departmentId,
@@ -133,16 +136,36 @@ export const getTickets = asyncHandler(
       endDate,
     } = req.query
 
+    // Explicitly parse, sanitize, and default pagination parameters
+    let pageNumber = Number(req.query.page)
+    let limitNumber = Number(req.query.limit)
+
+    if (isNaN(pageNumber) || pageNumber < 1) {
+      pageNumber = 1 // Default page
+    }
+
+    if (isNaN(limitNumber) || limitNumber < 1) {
+      limitNumber = 10 // Default limit
+    } else if (limitNumber > 100) {
+      limitNumber = 100 // Max limit as per paginationSchema
+    }
+
     const { userId, role, departmentId: userDepartmentId } = req.user!
 
     let whereClause: Prisma.TicketWhereInput = {}
 
     // Role-based filtering
     if (role === 'AGENT') {
-      // Agents can only see tickets in their department
-      whereClause.departmentId = userDepartmentId
+      if (userDepartmentId) {
+        whereClause.departmentId = userDepartmentId
+      } else {
+        // Agent has no department, so they can't see any department-specific tickets here.
+        // Assign a value that won't match any valid CUID to ensure no tickets are returned.
+        // This prevents a PrismaClientValidationError if userDepartmentId is null/undefined.
+        whereClause.departmentId = '0000000000000000000000000' // Example non-matching CUID like string
+      }
     }
-    // Admins can see all tickets (no additional filtering)
+    // Admins can see all tickets (no additional departmentId filtering based on their own department)
 
     // Apply filters
     if (status) whereClause.status = status
@@ -162,7 +185,7 @@ export const getTickets = asyncHandler(
       if (endDate) whereClause.createdAt.lte = new Date(endDate)
     }
 
-    const skip = (page - 1) * limit
+    const skip = (pageNumber - 1) * limitNumber
 
     const [tickets, totalCount] = await Promise.all([
       prisma.ticket.findMany({
@@ -200,22 +223,22 @@ export const getTickets = asyncHandler(
           createdAt: 'desc',
         },
         skip,
-        take: limit,
+        take: Number(limitNumber),
       }),
       prisma.ticket.count({ where: whereClause }),
     ])
 
-    const totalPages = Math.ceil(totalCount / limit)
+    const totalPages = Math.ceil(totalCount / limitNumber)
 
     res.json(
       ApiResponse.success('Tickets retrieved successfully', {
         tickets,
         pagination: {
-          currentPage: page,
+          currentPage: pageNumber,
           totalPages,
           totalCount,
-          hasNextPage: page < totalPages,
-          hasPrevPage: page > 1,
+          hasNextPage: pageNumber < totalPages,
+          hasPrevPage: pageNumber > 1,
         },
       })
     )
@@ -224,9 +247,22 @@ export const getTickets = asyncHandler(
 
 export const getMyTickets = asyncHandler(
   async (req: Request<{}, {}, {}, TicketFiltersInput>, res: Response) => {
-    const { page, limit, status, priority, tags, startDate, endDate } =
-      req.query
+    const { status, priority, tags, startDate, endDate } = req.query
     const userId = req.user!.userId
+
+    // Explicitly parse, sanitize, and default pagination parameters
+    let pageNumber = Number(req.query.page)
+    let limitNumber = Number(req.query.limit)
+
+    if (isNaN(pageNumber) || pageNumber < 1) {
+      pageNumber = 1 // Default page
+    }
+
+    if (isNaN(limitNumber) || limitNumber < 1) {
+      limitNumber = 10 // Default limit
+    } else if (limitNumber > 100) {
+      limitNumber = 100 // Max limit as per paginationSchema
+    }
 
     let whereClause: Prisma.TicketWhereInput = {
       createdById: userId,
@@ -247,7 +283,7 @@ export const getMyTickets = asyncHandler(
       if (endDate) whereClause.createdAt.lte = new Date(endDate)
     }
 
-    const skip = (page - 1) * limit
+    const skip = (pageNumber - 1) * limitNumber
 
     const [tickets, totalCount] = await Promise.all([
       prisma.ticket.findMany({
@@ -277,22 +313,22 @@ export const getMyTickets = asyncHandler(
           createdAt: 'desc',
         },
         skip,
-        take: limit,
+        take: limitNumber,
       }),
       prisma.ticket.count({ where: whereClause }),
     ])
 
-    const totalPages = Math.ceil(totalCount / limit)
+    const totalPages = Math.ceil(totalCount / limitNumber)
 
     res.json(
       ApiResponse.success('My tickets retrieved successfully', {
         tickets,
         pagination: {
-          currentPage: page,
+          currentPage: pageNumber,
           totalPages,
           totalCount,
-          hasNextPage: page < totalPages,
-          hasPrevPage: page > 1,
+          hasNextPage: pageNumber < totalPages,
+          hasPrevPage: pageNumber > 1,
         },
       })
     )
@@ -301,9 +337,23 @@ export const getMyTickets = asyncHandler(
 
 export const getAssignedTickets = asyncHandler(
   async (req: Request<{}, {}, {}, TicketFiltersInput>, res: Response) => {
-    const { page, limit, status, priority, tags, startDate, endDate } =
-      req.query
+    // Destructure non-pagination query params first
+    const { status, priority, tags, startDate, endDate } = req.query
     const userId = req.user!.userId
+
+    // Explicitly parse, sanitize, and default pagination parameters
+    let pageNumber = Number(req.query.page)
+    let limitNumber = Number(req.query.limit)
+
+    if (isNaN(pageNumber) || pageNumber < 1) {
+      pageNumber = 1 // Default page
+    }
+
+    if (isNaN(limitNumber) || limitNumber < 1) {
+      limitNumber = 10 // Default limit
+    } else if (limitNumber > 100) {
+      limitNumber = 100 // Max limit as per paginationSchema
+    }
 
     let whereClause: Prisma.TicketWhereInput = {
       assignedToId: userId,
@@ -324,7 +374,7 @@ export const getAssignedTickets = asyncHandler(
       if (endDate) whereClause.createdAt.lte = new Date(endDate)
     }
 
-    const skip = (page - 1) * limit
+    const skip = (pageNumber - 1) * limitNumber
 
     const [tickets, totalCount] = await Promise.all([
       prisma.ticket.findMany({
@@ -353,23 +403,23 @@ export const getAssignedTickets = asyncHandler(
         orderBy: {
           createdAt: 'desc',
         },
-        skip,
-        take: limit,
+        skip: skip,
+        take: limitNumber, // Use the sanitized numeric limitNumber
       }),
       prisma.ticket.count({ where: whereClause }),
     ])
 
-    const totalPages = Math.ceil(totalCount / limit)
+    const totalPages = Math.ceil(totalCount / limitNumber)
 
     res.json(
       ApiResponse.success('Assigned tickets retrieved successfully', {
         tickets,
         pagination: {
-          currentPage: page,
+          currentPage: pageNumber, // Use sanitized numeric pageNumber
           totalPages,
           totalCount,
-          hasNextPage: page < totalPages,
-          hasPrevPage: page > 1,
+          hasNextPage: pageNumber < totalPages,
+          hasPrevPage: pageNumber > 1,
         },
       })
     )
@@ -700,9 +750,13 @@ export const updateTicketStatus = asyncHandler(
 )
 
 export const assignTicket = asyncHandler(
-  async (req: Request, res: Response) => {
+  async (req: Request<AssignTicketParams>, res: Response) => {
     const { id, agentId } = req.params
-    const userId = req.user!.userId
+    const currentPerformingUserId = req.user!.userId
+
+    if (!id || !agentId) {
+      throw new ApiError('Both ticket ID and agent ID are required', 400)
+    }
 
     // Validate agent exists and has proper role
     const agent = await prisma.user.findUnique({
@@ -710,8 +764,12 @@ export const assignTicket = asyncHandler(
       select: { role: true, departmentId: true, name: true },
     })
 
-    if (!agent || (agent.role !== 'AGENT' && agent.role !== 'ADMIN')) {
-      throw new ApiError('Invalid agent selected', 400)
+    if (!agent) {
+      throw new ApiError('Agent not found', 404)
+    }
+
+    if (agent.role !== 'AGENT' && agent.role !== 'ADMIN') {
+      throw new ApiError('Selected user is not an agent or admin', 400)
     }
 
     const ticket = await prisma.ticket.findUnique({
@@ -785,7 +843,10 @@ export const assignTicket = asyncHandler(
       })
 
       // Notify ticket creator about assignment
-      if (ticket.createdById !== userId && ticket.createdById !== agentId) {
+      if (
+        ticket.createdById !== currentPerformingUserId &&
+        ticket.createdById !== agentId
+      ) {
         await notificationService.createNotification({
           message: `Your ticket "${ticket.title}" has been assigned to ${agent.name}`,
           type: 'ASSIGNMENT',
