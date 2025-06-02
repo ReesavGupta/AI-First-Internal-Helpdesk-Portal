@@ -6,7 +6,7 @@ import {
   UpdateDepartmentInput,
   PaginationInput,
 } from '../schemas'
-import { Prisma } from '../../prisma/generated/prisma'
+import { Prisma } from '@prisma/client'
 
 export const createDepartment = asyncHandler(
   async (req: Request<{}, {}, CreateDepartmentInput>, res: Response) => {

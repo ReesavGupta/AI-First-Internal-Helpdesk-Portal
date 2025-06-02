@@ -8,7 +8,7 @@ import {
   CreateTicketResponseInput,
   TicketFiltersInput,
 } from '../schemas'
-import { Prisma } from '../../prisma/generated/prisma'
+import { Prisma } from '@prisma/client'
 import { assignTicketByAI } from '../services/ai.service'
 import { getNotificationService } from '../services/notification.service'
 
