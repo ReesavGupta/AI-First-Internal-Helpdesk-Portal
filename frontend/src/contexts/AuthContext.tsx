@@ -63,7 +63,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   // Register mutation
   const registerMutation = useMutation({
     mutationFn: apiClient.register,
-    onSuccess: (data) => {
+    onSuccess: (data: any) => {
       apiClient.setToken(data.token)
       setUser(data.user)
       queryClient.invalidateQueries({ queryKey: ['profile'] })
@@ -109,7 +109,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   // Update profile mutation
   const updateProfileMutation = useMutation({
     mutationFn: apiClient.updateProfile,
-    onSuccess: (data) => {
+    onSuccess: (data: any) => {
       setUser(data)
       queryClient.invalidateQueries({ queryKey: ['profile'] })
       toast({

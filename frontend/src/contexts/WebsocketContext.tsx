@@ -152,7 +152,7 @@ export function WebSocketProvider({ children }: { children: React.ReactNode }) {
         wsRef.current.close()
       }
     }
-  }, [user])
+  }, [user, connect])
 
   return (
     <WebSocketContext.Provider

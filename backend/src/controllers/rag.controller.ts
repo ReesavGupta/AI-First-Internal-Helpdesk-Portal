@@ -1,7 +1,7 @@
 import { Request, Response, NextFunction } from 'express'
 import { asyncHandler, ApiResponse, ApiError } from '../utils/ErrorHandler'
 import { prisma } from '../../prisma/client'
-import { UserRole } from '@prisma/client'
+import { UserRole, RagSourceDocument } from '@prisma/client'
 import {
   processDocument,
   getEmbedding,
@@ -38,7 +38,7 @@ export const handleDocumentUpload = asyncHandler(
     const { filename, path: originalPath, mimetype, size } = req.file
     const userId = req.user.userId
 
-    let documentRecord
+    let documentRecord: RagSourceDocument | undefined
     try {
       documentRecord = await prisma.ragSourceDocument.create({
         data: {
@@ -119,10 +119,9 @@ export const handleRagQuery = asyncHandler(
         return res
           .status(200)
           .json(
-            new ApiResponse(
-              200,
-              [],
-              'Query processed, but no relevant information found (empty query embedding).'
+            ApiResponse.success(
+              'Query processed, but no relevant information found (empty query embedding).',
+              []
             )
           )
       }
@@ -133,10 +132,9 @@ export const handleRagQuery = asyncHandler(
         return res
           .status(200)
           .json(
-            new ApiResponse(
-              200,
-              [],
-              'No relevant document chunks found for your query.'
+            ApiResponse.success(
+              'No relevant document chunks found for your query.',
+              []
             )
           )
       }
@@ -156,10 +154,9 @@ export const handleRagQuery = asyncHandler(
       res
         .status(200)
         .json(
-          new ApiResponse(
-            200,
-            formattedChunks,
-            'Successfully retrieved relevant document chunks.'
+          ApiResponse.success(
+            'Successfully retrieved relevant document chunks.',
+            formattedChunks
           )
         )
     } catch (error) {

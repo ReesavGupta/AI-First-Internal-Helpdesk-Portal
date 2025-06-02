@@ -35,6 +35,7 @@ export function NotificationProvider({
     isLoading,
     refetch,
   } = useQuery({
+    // Kept original untyped useQuery
     queryKey: ['notifications'],
     queryFn: () => apiClient.getNotifications({ limit: 50 }), // Fetch more for local cache
   })
@@ -47,6 +48,7 @@ export function NotificationProvider({
 
   // Query for notification stats (unread count)
   const { data: statsData } = useQuery({
+    // Kept original untyped useQuery
     queryKey: ['notification-stats'],
     queryFn: apiClient.getNotificationStats,
   })
@@ -131,10 +133,17 @@ export function NotificationProvider({
         pagination: any
       }>(['notifications'])
       const previousStats = queryClient.getQueryData<any>([
+        // Kept original 'any' type
         'notification-stats',
       ])
 
-      queryClient.setQueryData(
+      queryClient.setQueryData<
+        | {
+            notifications: Notification[]
+            pagination: any
+          }
+        | undefined
+      >(
         ['notifications'],
         (
           old: { notifications: Notification[]; pagination: any } | undefined
@@ -150,24 +159,27 @@ export function NotificationProvider({
           }
         }
       )
-      queryClient.setQueryData(['notification-stats'], (old: any) => {
-        if (!old || typeof old.unreadCount !== 'number') return old
-        const notificationToUpdate = previousNotifications?.notifications?.find(
-          (n) => n.id === id
-        )
-        // Only decrement if the notification was actually unread
-        return {
-          ...old,
-          unreadCount:
-            notificationToUpdate && !notificationToUpdate.read
-              ? Math.max(0, old.unreadCount - 1)
-              : old.unreadCount,
+      queryClient.setQueryData<any | undefined>(
+        ['notification-stats'],
+        (old: any | undefined) => {
+          // Kept original 'any' type
+          if (!old || typeof old.unreadCount !== 'number') return old
+          const notificationToUpdate =
+            previousNotifications?.notifications?.find((n) => n.id === id)
+          // Only decrement if the notification was actually unread
+          return {
+            ...old,
+            unreadCount:
+              notificationToUpdate && !notificationToUpdate.read
+                ? Math.max(0, old.unreadCount - 1)
+                : old.unreadCount,
+          }
         }
-      })
+      )
 
       return { previousNotifications, previousStats }
     },
-    onError: (err, id, context) => {
+    onError: (err, id, context: any) => {
       if (context?.previousNotifications) {
         queryClient.setQueryData(
           ['notifications'],
@@ -207,10 +219,17 @@ export function NotificationProvider({
         pagination: any
       }>(['notifications'])
       const previousStats = queryClient.getQueryData<any>([
+        // Kept original 'any' type
         'notification-stats',
       ])
 
-      queryClient.setQueryData(
+      queryClient.setQueryData<
+        | {
+            notifications: Notification[]
+            pagination: any
+          }
+        | undefined
+      >(
         ['notifications'],
         (
           old: { notifications: Notification[]; pagination: any } | undefined
@@ -226,14 +245,18 @@ export function NotificationProvider({
           }
         }
       )
-      queryClient.setQueryData(['notification-stats'], (old: any) => {
-        if (!old) return old
-        return { ...old, unreadCount: 0 }
-      })
+      queryClient.setQueryData<any | undefined>(
+        ['notification-stats'],
+        (old: any | undefined) => {
+          // Kept original 'any' type
+          if (!old) return old
+          return { ...old, unreadCount: 0 }
+        }
+      )
 
       return { previousNotifications, previousStats }
     },
-    onError: (err, variables, context) => {
+    onError: (err, variables, context: any) => {
       if (context?.previousNotifications) {
         queryClient.setQueryData(
           ['notifications'],
@@ -273,12 +296,19 @@ export function NotificationProvider({
         pagination: any
       }>(['notifications'])
       const previousStats = queryClient.getQueryData<any>([
+        // Kept original 'any' type
         'notification-stats',
       ])
 
       let wasUnread = false
 
-      queryClient.setQueryData(
+      queryClient.setQueryData<
+        | {
+            notifications: Notification[]
+            pagination: any
+          }
+        | undefined
+      >(
         ['notifications'],
         (
           old: { notifications: Notification[]; pagination: any } | undefined
@@ -296,19 +326,23 @@ export function NotificationProvider({
           }
         }
       )
-      queryClient.setQueryData(['notification-stats'], (old: any) => {
-        if (!old || typeof old.unreadCount !== 'number') return old
-        return {
-          ...old,
-          unreadCount: wasUnread
-            ? Math.max(0, old.unreadCount - 1)
-            : old.unreadCount,
+      queryClient.setQueryData<any | undefined>(
+        ['notification-stats'],
+        (old: any | undefined) => {
+          // Kept original 'any' type
+          if (!old || typeof old.unreadCount !== 'number') return old
+          return {
+            ...old,
+            unreadCount: wasUnread
+              ? Math.max(0, old.unreadCount - 1)
+              : old.unreadCount,
+          }
         }
-      })
+      )
 
       return { previousNotifications, previousStats }
     },
-    onError: (err, id, context) => {
+    onError: (err, id, context: any) => {
       if (context?.previousNotifications) {
         queryClient.setQueryData(
           ['notifications'],

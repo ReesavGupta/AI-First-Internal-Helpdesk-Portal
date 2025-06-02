@@ -127,7 +127,7 @@ export function DepartmentDetailPage() {
       </div>
 
       {/* Department Info */}
-      <div className="grid gap-6 lg:grid-cols-4">
+      <div className="grid gap-6 lg:grid-cols-3">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Total Agents</CardTitle>
@@ -164,18 +164,6 @@ export function DepartmentDetailPage() {
               {stats?.overview?.resolutionRate !== undefined
                 ? `${stats.overview.resolutionRate}%`
                 : 'N/A'}
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Satisfaction</CardTitle>
-            <BarChart3 className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">
-              {stats?.satisfactionScore || 'N/A'}
             </div>
           </CardContent>
         </Card>

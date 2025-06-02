@@ -287,7 +287,11 @@ export function TicketDetailPage() {
                 <>
                   <DropdownMenuSeparator />
                   <DropdownMenuItem
-                    onClick={() => assignTicketMutation.mutate(user?.id!)}
+                    onClick={() => {
+                      if (user && user.id) {
+                        assignTicketMutation.mutate(user.id)
+                      }
+                    }}
                   >
                     <User className="mr-2 h-4 w-4" />
                     Assign to Me
@@ -327,7 +331,11 @@ export function TicketDetailPage() {
               )}
               {canAssign && user?.role === 'AGENT' && (
                 <DropdownMenuItem
-                  onClick={() => assignTicketMutation.mutate(user?.id!)}
+                  onClick={() => {
+                    if (user && user.id) {
+                      assignTicketMutation.mutate(user.id)
+                    }
+                  }}
                 >
                   <User className="mr-2 h-4 w-4" />
                   Assign to Me
