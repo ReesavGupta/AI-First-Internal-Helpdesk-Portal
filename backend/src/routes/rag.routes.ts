@@ -1,4 +1,4 @@
-import { Router } from 'express'
+import { Router, Request } from 'express'
 import multer from 'multer'
 import { authenticate, requireRole } from '../middlewares/auth'
 import { UserRole } from '@prisma/client'
@@ -14,11 +14,19 @@ const router = Router()
 // For now, let's configure it for disk storage in a temporary directory.
 // Make sure 'uploads/rag-documents/' directory exists or multer will throw an error.
 const storage = multer.diskStorage({
-  destination: function (req, file, cb) {
+  destination: function (
+    req: Request,
+    file: Express.Multer.File,
+    cb: (error: Error | null, destination: string) => void
+  ) {
     // TODO: Ensure this directory exists and is gitignored
     cb(null, 'uploads/rag-documents/')
   },
-  filename: function (req, file, cb) {
+  filename: function (
+    req: Request,
+    file: Express.Multer.File,
+    cb: (error: Error | null, filename: string) => void
+  ) {
     // Keep original filename + add a timestamp to avoid conflicts
     cb(null, `${Date.now()}-${file.originalname}`)
   },
