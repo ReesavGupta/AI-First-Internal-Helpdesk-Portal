@@ -19,7 +19,7 @@ declare global {
         role: UserRole
         departmentId?: string
       }
-      file?: Multer.File
+      file?: Express.Multer.File
     }
   }
 }
