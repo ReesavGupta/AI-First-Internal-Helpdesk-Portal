@@ -1,7 +1,7 @@
 import { Request, Response } from 'express'
 import { prisma } from '../../prisma/client'
 import { ApiResponse, asyncHandler } from '../utils/ErrorHandler'
-import { UserRole } from '../../prisma/generated/prisma'
+import { UserRole } from '@prisma/client'
 
 export const getAllAgents = asyncHandler(
   async (req: Request, res: Response) => {

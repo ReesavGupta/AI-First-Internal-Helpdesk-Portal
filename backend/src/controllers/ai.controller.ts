@@ -11,7 +11,7 @@ import {
   generateComprehensiveInsightsReport,
 } from '../services/ai.service'
 import { prisma } from '../../prisma/client'
-import { TicketStatus } from '../../prisma/generated/prisma'
+import { TicketStatus } from '@prisma/client'
 
 // Helper to calculate start date based on timeRange (e.g., '7d', '30d')
 const calculateStartDate = (timeRange: string): Date => {
