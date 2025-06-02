@@ -3,7 +3,7 @@ import { Request, Response, NextFunction } from 'express'
 import { verifyToken } from '../utils/jwt.utils'
 import { ApiError } from '../utils/ErrorHandler'
 import { prisma } from '../../prisma/client'
-import { UserRole } from '../../prisma/generated/prisma'
+import { UserRole } from '@prisma/client'
 
 // Extend Request interface to include user
 declare global {

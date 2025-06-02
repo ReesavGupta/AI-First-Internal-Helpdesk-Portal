@@ -1,5 +1,5 @@
 import jwt from 'jsonwebtoken'
-import { UserRole } from '../../prisma/generated/prisma'
+import { UserRole } from '@prisma/client'
 
 interface TokenPayload {
   userId: string

@@ -1,6 +1,6 @@
 // src/types/auth.types.ts
 import { Request } from 'express'
-import { UserRole } from '../../prisma/generated/prisma'
+import { UserRole } from '@prisma/client'
 
 export interface AuthenticatedUser {
   userId: string

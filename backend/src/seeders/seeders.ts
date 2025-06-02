@@ -1,6 +1,6 @@
 // src/seeders/documentSeeder.ts
 import { prisma } from '../../prisma/client'
-import { FAQVisibility } from '../../prisma/generated/prisma'
+import { FAQVisibility } from '@prisma/client'
 
 const predefinedDocuments = [
   {

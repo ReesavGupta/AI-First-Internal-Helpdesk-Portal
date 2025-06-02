@@ -2,7 +2,7 @@
 import { Request, Response, NextFunction } from 'express'
 import { prisma } from '../../prisma/client'
 import { ApiError } from '../utils/ErrorHandler'
-import { FAQVisibility } from '../../prisma/generated/prisma'
+import { FAQVisibility } from '@prisma/client'
 
 // Create FAQ
 export const createFAQ = async (

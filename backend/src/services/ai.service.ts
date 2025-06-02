@@ -3,7 +3,7 @@ import OpenAI from 'openai'
 import { prisma } from '../../prisma/client'
 import { ApiError } from '../utils/ErrorHandler'
 import NodeCache from 'node-cache'
-import { TicketStatus } from '../../prisma/generated/prisma' // Import TicketStatus
+import { TicketStatus } from '@prisma/client' // Changed import path
 
 // Initialize OpenAI client
 const openai = new OpenAI({

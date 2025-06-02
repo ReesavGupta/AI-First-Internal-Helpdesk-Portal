@@ -1,6 +1,6 @@
 import { Request, Response, NextFunction } from 'express'
 import { ZodError } from 'zod'
-import { Prisma } from '../../prisma/generated/prisma'
+import { Prisma } from '@prisma/client'
 import { AuthenticatedRequest } from '../types/auth.types'
 
 export class ApiError extends Error {
