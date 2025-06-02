@@ -61,13 +61,15 @@ class ApiClient {
   }
 
   register = async (data: any) => {
-    return this.request<{ user: any; token: string; message: string }>(
-      '/auth/register',
-      {
-        method: 'POST',
-        body: JSON.stringify(data),
-      }
-    )
+    const regssterData: any = await this.request<{
+      user: any
+      token: string
+      message: string
+    }>('/auth/register', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    })
+    return regssterData.data
   }
 
   getProfile = async () => {
@@ -86,6 +88,12 @@ class ApiClient {
     return this.request<{ message: string }>('/auth/logout', {
       method: 'POST',
     })
+  }
+
+  // User endpoints
+  getAllAgents = async () => {
+    const response = await this.request<any>('/users/agents')
+    return response.data // Assuming the backend returns { success: boolean, message: string, data: Agent[] }
   }
 
   // Tickets endpoints
@@ -219,19 +227,22 @@ class ApiClient {
   }
 
   getDepartmentAgents = async (id: string, page = 1, limit = 10) => {
-    return this.request<any>(
+    const response = await this.request<any>(
       `/departments/${id}/agents?page=${page}&limit=${limit}`
     )
+    return response.data
   }
 
   getDepartmentTickets = async (id: string, page = 1, limit = 10) => {
-    return this.request<any>(
+    const response = await this.request<any>(
       `/departments/${id}/tickets?page=${page}&limit=${limit}`
     )
+    return response.data
   }
 
   getDepartmentStats = async (id: string) => {
-    return this.request<any>(`/departments/${id}/stats`)
+    const response = await this.request<any>(`/departments/${id}/stats`)
+    return response.data
   }
 
   // Notifications endpoints
@@ -245,13 +256,13 @@ class ApiClient {
       })
     }
     const query = params.toString() ? `?${params.toString()}` : ''
-    return this.request<any>(`/notifications${query}`)
+    const response = await this.request<any>(`/notifications${query}`)
+    return response.data
   }
 
   getNotificationStats = async () => {
-    return this.request<{ total: number; unread: number }>(
-      '/notifications/stats'
-    )
+    const response = await this.request<any>('/notifications/stats')
+    return response.data
   }
 
   markNotificationRead = async (id: string) => {
@@ -315,7 +326,8 @@ class ApiClient {
       })
     }
     const query = params.toString() ? `?${params.toString()}` : ''
-    return this.request<any>(`/faq${query}`)
+    const response = await this.request<any>(`/faq${query}`)
+    return response.data
   }
 
   searchFAQs = async (query: string, filters?: any) => {
@@ -385,18 +397,9 @@ class ApiClient {
     return this.request<any>(`/ai/suggestions/${ticketId}`)
   }
 
-  getAIInsights = async (filters?: any) => {
-    const params = new URLSearchParams()
-    if (filters) {
-      Object.entries(filters).forEach(([key, value]) => {
-        if (value !== undefined && value !== null && value !== '') {
-          params.append(key, String(value))
-        }
-      })
-    }
-    const query = params.toString() ? `?${params.toString()}` : ''
-    const aiInsights = await this.request<any>(`/ai/insights${query}`)
-    return aiInsights.datas
+  getAIInsights = async (params: { timeRange: string }) => {
+    const queryParams = new URLSearchParams(params).toString()
+    return this.request<any>(`/ai/insights?${queryParams}`)
   }
 
   batchProcessAI = async (data: any) => {

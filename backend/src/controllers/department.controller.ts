@@ -59,16 +59,16 @@ export const createDepartment = asyncHandler(
 export const getDepartments = asyncHandler(
   async (req: Request<{}, {}, {}, PaginationInput>, res: Response) => {
     const { page = 1, limit = 10 } = req.query
-    const { role, departmentId } = req.user!
+    // const { role, departmentId } = req.user!
 
     const skip = (page - 1) * limit
 
-    let whereClause: Prisma.DepartmentWhereInput = {}
+    const whereClause: Prisma.DepartmentWhereInput = {}
 
     // If user is an agent, they can only see their own department
-    if (role === 'AGENT' && departmentId) {
-      whereClause.id = departmentId
-    }
+    // if (role === 'AGENT' && departmentId) {
+    //   whereClause.id = departmentId
+    // }
 
     const [departments, totalCount] = await Promise.all([
       prisma.department.findMany({
@@ -315,7 +315,7 @@ export const getDepartmentAgents = asyncHandler(
           name: 'asc',
         },
         skip,
-        take: limit,
+        take: Number(limit),
       }),
       prisma.user.count({
         where: {
@@ -408,7 +408,7 @@ export const getDepartmentTickets = asyncHandler(
           createdAt: 'desc',
         },
         skip,
-        take: limit,
+        take: Number(limit),
       }),
       prisma.ticket.count({
         where: {

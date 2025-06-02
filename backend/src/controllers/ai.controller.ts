@@ -1,6 +1,6 @@
 // src/controllers/ai.controller.ts
 import { Request, Response, NextFunction } from 'express'
-import { ApiError } from '../utils/ErrorHandler'
+import { ApiError, asyncHandler, ApiResponse } from '../utils/ErrorHandler'
 import {
   assignTicketByAI,
   generateResponseSuggestions,
@@ -8,8 +8,27 @@ import {
   getAIAnswer,
   type AIResponseSuggestion,
   type PatternInsight,
+  generateComprehensiveInsightsReport,
 } from '../services/ai.service'
 import { prisma } from '../../prisma/client'
+import { TicketStatus } from '../../prisma/generated/prisma'
+
+// Helper to calculate start date based on timeRange (e.g., '7d', '30d')
+const calculateStartDate = (timeRange: string): Date => {
+  const now = new Date()
+  let daysToSubtract = 0
+  if (timeRange.endsWith('d')) {
+    daysToSubtract = parseInt(timeRange.replace('d', ''), 10)
+  } else if (timeRange.endsWith('h')) {
+    const hours = parseInt(timeRange.replace('h', ''), 10)
+    daysToSubtract = Math.ceil(hours / 24)
+  } else {
+    daysToSubtract = 7 // Default
+  }
+  if (isNaN(daysToSubtract) || daysToSubtract <= 0) daysToSubtract = 7
+  now.setDate(now.getDate() - daysToSubtract)
+  return now
+}
 
 // Auto-assign ticket to department using AI
 export const autoAssignTicket = async (
@@ -24,7 +43,8 @@ export const autoAssignTicket = async (
       throw new ApiError('Title and description are required', 400)
     }
 
-    const departmentId = await assignTicketByAI(title, description)
+    const aiAssignmentResult = await assignTicketByAI(title, description)
+    const departmentId = aiAssignmentResult.departmentId
 
     // Get department details for response
     const department = await prisma.department.findUnique({
@@ -38,6 +58,7 @@ export const autoAssignTicket = async (
       data: {
         departmentId,
         departmentName: department?.name,
+        assignedByAI: aiAssignmentResult.assignedByAI,
       },
     })
   } catch (error) {
@@ -254,6 +275,7 @@ export const batchProcessTickets = async (
             title: true,
             description: true,
             departmentId: true,
+            assignedByAI: true,
           },
         })
 
@@ -267,32 +289,43 @@ export const batchProcessTickets = async (
         }
 
         if (action === 'reassign') {
-          const newDepartmentId = await assignTicketByAI(
+          if (!ticket.title || !ticket.description) {
+            results.push({
+              ticketId,
+              success: false,
+              error:
+                'Ticket title and description are required for AI reassignment',
+            })
+            continue
+          }
+          const aiAssignmentResult = await assignTicketByAI(
             ticket.title,
             ticket.description
           )
+          const newDepartmentId = aiAssignmentResult.departmentId
 
           if (newDepartmentId !== ticket.departmentId) {
             await prisma.ticket.update({
               where: { id: ticketId },
               data: {
                 departmentId: newDepartmentId,
-                assignedToId: null, // Reset assignment when changing department
+                assignedByAI: aiAssignmentResult.assignedByAI, // Also update assignedByAI flag
               },
             })
-
             results.push({
               ticketId,
               success: true,
-              action: 'reassigned',
+              message: `Reassigned to department ID: ${newDepartmentId}`,
               newDepartmentId,
+              assignedByAI: aiAssignmentResult.assignedByAI,
             })
           } else {
             results.push({
               ticketId,
               success: true,
-              action: 'no_change_needed',
-              departmentId: ticket.departmentId,
+              message: 'Ticket already in correct department according to AI',
+              originalDepartmentId: ticket.departmentId,
+              assignedByAI: ticket.assignedByAI, // Keep original assignedByAI status if not changed
             })
           }
         } else if (action === 'suggest_responses') {
@@ -391,3 +424,127 @@ export const testAI = async (
     next(error)
   }
 }
+
+export const getAIInsights = asyncHandler(
+  async (req: Request, res: Response) => {
+    const timeRange = (req.query.timeRange as string) || '7d'
+    const startDate = calculateStartDate(timeRange)
+
+    const ticketsInTimeRange = await prisma.ticket.findMany({
+      where: {
+        createdAt: {
+          gte: startDate,
+        },
+        // Add any other relevant filters if needed
+      },
+      select: {
+        id: true,
+        title: true,
+        description: true, // Consider if full description is needed or if a summary would be better for token limits
+        status: true,
+        priority: true,
+        createdAt: true,
+        updatedAt: true,
+        departmentId: true,
+        tags: true,
+        assignedByAI: true, // Ensure this new field is selected
+        // createdById: true, // If needed for further analysis by AI
+        // assignedToId: true, // If needed
+      },
+      orderBy: {
+        createdAt: 'desc',
+      },
+      take: 300, // Reduced from 500 to 300
+    })
+
+    const departments = await prisma.department.findMany({
+      select: {
+        id: true,
+        name: true,
+        // keywords: true, // Might be too verbose for the insights prompt
+      },
+    })
+
+    if (ticketsInTimeRange.length === 0) {
+      console.log(`No tickets found in time range: ${timeRange}`)
+      // Return a structured response indicating no data, but not an error
+      return res.json(
+        ApiResponse.success(
+          'Successfully retrieved AI insights (no tickets in period)',
+          {
+            summary: {
+              totalTickets: 0,
+              autoAssigned: 0,
+              accurateAssignments: 0,
+              avgResolutionTime: 'N/A',
+              satisfactionScore: 'N/A',
+            },
+            patterns: [],
+            departments: departments.map((d) => ({
+              name: d.name,
+              accuracy: 0,
+              volume: 0,
+            })),
+            recommendations: [
+              {
+                id: 'no_data_reco',
+                title: 'No Ticket Data',
+                description:
+                  'There were no tickets in the selected time period to analyze.',
+                priority: 'Low',
+                estimatedImpact: 'N/A',
+              },
+            ],
+          }
+        )
+      )
+    }
+
+    console.log(
+      `Generating AI insights for ${ticketsInTimeRange.length} tickets, time range: ${timeRange}`
+    )
+    const insights = await generateComprehensiveInsightsReport(
+      ticketsInTimeRange,
+      departments,
+      timeRange
+    )
+
+    // Check if the insights generation itself returned an error structure
+    if (insights.error) {
+      console.error(
+        'AI service returned an error during insights generation:',
+        insights.message
+      )
+      // Send back the fallback insights provided by the service
+      return res
+        .status(500) // Or a different status code if appropriate
+        .json(
+          ApiResponse.error(
+            `AI insights generation failed: ${insights.message}`,
+            insights.fallbackInsights || {
+              summary: {
+                totalTickets: ticketsInTimeRange.length,
+                autoAssigned: 0,
+                accurateAssignments: 0,
+                avgResolutionTime: 'N/A',
+                satisfactionScore: 'N/A',
+              },
+              patterns: [],
+              departments: [],
+              recommendations: [],
+            }
+          )
+        )
+    }
+
+    console.log(
+      `Successfully generated AI insights for time range: ${timeRange}`
+    )
+    res.json(
+      ApiResponse.success(
+        'AI insights generated successfully by AI service',
+        insights
+      )
+    )
+  }
+)

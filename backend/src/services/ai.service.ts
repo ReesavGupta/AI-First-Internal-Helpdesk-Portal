@@ -2,11 +2,16 @@
 import OpenAI from 'openai'
 import { prisma } from '../../prisma/client'
 import { ApiError } from '../utils/ErrorHandler'
+import NodeCache from 'node-cache'
+import { TicketStatus } from '../../prisma/generated/prisma' // Import TicketStatus
 
 // Initialize OpenAI client
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
 })
+
+// Initialize Cache (e.g., cache AI insights for 10 minutes)
+const insightsCache = new NodeCache({ stdTTL: 600 })
 
 // Types for AI responses
 interface AIResponseSuggestion {
@@ -34,7 +39,7 @@ interface PatternInsight {
 export const assignTicketByAI = async (
   title: string,
   description: string
-): Promise<string> => {
+): Promise<{ departmentId: string; assignedByAI: boolean }> => {
   try {
     // Get all departments with their keywords
     const departments = await prisma.department.findMany({
@@ -101,10 +106,10 @@ Return only the department ID, no additional text.`
       console.warn(
         `AI returned invalid department ID: ${assignedDepartmentId}. Using fallback: ${fallbackDept.id}`
       )
-      return fallbackDept.id
+      return { departmentId: fallbackDept.id, assignedByAI: true }
     }
 
-    return assignedDepartmentId!
+    return { departmentId: assignedDepartmentId!, assignedByAI: true }
   } catch (error) {
     console.error('AI ticket assignment failed:', error)
 
@@ -119,7 +124,7 @@ Return only the department ID, no additional text.`
     })
 
     if (fallbackDept) {
-      return fallbackDept.id
+      return { departmentId: fallbackDept.id, assignedByAI: true }
     }
 
     // Last resort: get any department
@@ -128,7 +133,7 @@ Return only the department ID, no additional text.`
       throw new ApiError('No departments available for ticket assignment', 500)
     }
 
-    return anyDepartment.id
+    return { departmentId: anyDepartment.id, assignedByAI: true }
   }
 }
 
@@ -305,10 +310,10 @@ export const detectPatterns = async (): Promise<PatternInsight[]> => {
 
     // Detect volume spikes
     const dailyTicketCounts = (await prisma.$queryRaw`
-      SELECT DATE(created_at) as date, COUNT(*) as count
+      SELECT DATE(createdAt) as date, COUNT(*) as count
       FROM tickets
-      WHERE created_at >= NOW() - INTERVAL '30 days'
-      GROUP BY DATE(created_at)
+      WHERE createdAt >= NOW() - INTERVAL '30 days'
+      GROUP BY DATE(createdAt)
       ORDER BY date DESC
     `) as Array<{ date: Date; count: bigint }>
 
@@ -520,7 +525,7 @@ Provide a helpful, professional response that:
 Response:`
 
     const completion = await openai.chat.completions.create({
-      model: 'gpt-4-turbo-preview',
+      model: 'gpt-3.5-turbo',
       messages: [{ role: 'user', content: prompt }],
       temperature: 0.6,
       max_tokens: 400,
@@ -722,6 +727,246 @@ async function searchDocuments(question: string) {
     },
     take: 3,
   })
+}
+
+export const generateComprehensiveInsightsReport = async (
+  tickets: any[],
+  departments: any[],
+  timeRange: string
+): Promise<any> => {
+  const cacheKey = `insights-${timeRange}`
+  const cachedInsights = insightsCache.get(cacheKey)
+  if (cachedInsights) {
+    console.log(`Returning cached insights for ${timeRange}`)
+    return cachedInsights
+  }
+
+  const now = new Date().toISOString()
+
+  // --- Pre-computation Steps ---
+  const totalTickets = tickets.length
+  const autoAssignedCount = tickets.filter(
+    (t) => t.assignedByAI === true
+  ).length
+
+  let totalResolutionTimeMillis = 0
+  let resolvedTicketsCount = 0
+  tickets.forEach((ticket) => {
+    if (
+      (ticket.status === TicketStatus.RESOLVED ||
+        ticket.status === TicketStatus.CLOSED) &&
+      ticket.createdAt &&
+      ticket.updatedAt
+    ) {
+      const resolutionTime =
+        new Date(ticket.updatedAt).getTime() -
+        new Date(ticket.createdAt).getTime()
+      if (resolutionTime > 0) {
+        totalResolutionTimeMillis += resolutionTime
+        resolvedTicketsCount++
+      }
+    }
+  })
+
+  const avgResolutionTimeMillis =
+    resolvedTicketsCount > 0
+      ? totalResolutionTimeMillis / resolvedTicketsCount
+      : 0
+
+  // Function to format milliseconds to human-readable string (e.g., "X days Y hours Z minutes")
+  const formatMillisToTime = (millis: number) => {
+    if (millis <= 0) return 'N/A'
+    let seconds = Math.floor(millis / 1000)
+    let minutes = Math.floor(seconds / 60)
+    let hours = Math.floor(minutes / 60)
+    const days = Math.floor(hours / 24)
+
+    seconds %= 60
+    minutes %= 60
+    hours %= 24
+
+    const parts = []
+    if (days > 0) parts.push(`${days} day${days > 1 ? 's' : ''}`)
+    if (hours > 0) parts.push(`${hours} hour${hours > 1 ? 's' : ''}`)
+    if (minutes > 0) parts.push(`${minutes} minute${minutes > 1 ? 's' : ''}`)
+    if (parts.length === 0 && seconds > 0)
+      parts.push(`${seconds} second${seconds > 1 ? 's' : ''}`) // show seconds only if no larger units
+    if (parts.length === 0) return '< 1 minute' // for very short durations
+
+    return parts.join(' ')
+  }
+  const avgResolutionTimeString = formatMillisToTime(avgResolutionTimeMillis)
+
+  const departmentVolumes = departments.map((dept) => ({
+    name: dept.name,
+    id: dept.id,
+    volume: tickets.filter((t) => t.departmentId === dept.id).length,
+  }))
+
+  // Data Sanitization/Summarization for the AI prompt (focus on what AI needs to derive)
+  const summarizedTicketsForAIPatterns = tickets.map((ticket) => ({
+    id: ticket.id,
+    title: ticket.title.substring(0, 150),
+    departmentId: ticket.departmentId,
+    assignedByAI: ticket.assignedByAI,
+    tags: ticket.tags,
+    createdAt: ticket.createdAt, // Useful for time-based patterns
+  }))
+
+  const departmentInfoForPrompt = departments.map((dept) => ({
+    id: dept.id,
+    name: dept.name,
+  }))
+
+  const precomputedStats = {
+    totalTickets,
+    autoAssignedCount,
+    avgResolutionTimeString, // Provide the pre-formatted string
+    // satisfactionScore will still be N/A or 0 as per schema limitations
+    departmentVolumes, // Provide pre-calculated volumes
+  }
+
+  const prompt = `
+    As an AI Helpdesk Analyst, your task is to generate a insights report for the period of ${timeRange}, ending ${now}.
+    We have already pre-calculated some basic statistics. Your main tasks are to identify patterns, calculate AI assignment accuracy, and generate actionable recommendations.
+    The output MUST be a valid JSON object adhering to the following structure:
+    
+    {
+      "summary": {
+        "totalTickets": ${precomputedStats.totalTickets}, // Provided
+        "autoAssigned": ${precomputedStats.autoAssignedCount}, // Provided
+        "accurateAssignments": <number>, // Percentage (0-100). Calculated as: (COUNT of tickets where assignedByAI is true) / (COUNT of tickets where assignedByAI is true) * 100. If autoAssigned is 0, this should be 0. Effectively, this will be 100 if autoAssigned > 0, else 0.
+        "avgResolutionTime": "${
+          precomputedStats.avgResolutionTimeString
+        }", // Provided
+        "satisfactionScore": "N/A" // Schema limitation, always N/A or 0 and state why.
+      },
+      "patterns": [
+        { "id": "<string>", "pattern": "<string>", "frequency": <number>, "impact": "High"|"Medium"|"Low", "suggestion": "<string>" }
+        // Include 2-4 most significant patterns based on the tickets data.
+      ],
+      "departments": [
+        // For each department in the provided departmentInfoForPrompt:
+        { 
+          "name": "<string>", // Department name (from departmentInfoForPrompt)
+          "accuracy": <number>, // AI assignment accuracy for this dept (0-100). Calculated as: (COUNT of tickets in this_department where assignedByAI is true) / (COUNT of tickets in this_department where assignedByAI is true) * 100. If no tickets in this_department were assigned by AI, this should be 0. Effectively, this will be 100 for a department if it has any AI-assigned tickets, else 0.
+          "volume": <number> // Department ticket volume (use value from precomputedStats.departmentVolumes for this department)
+        }
+      ],
+      "recommendations": [
+        { "id": "<string>", "title": "<string>", "description": "<string>", "priority": "High"|"Medium"|"Low", "estimatedImpact": "<string>" }
+        // Include 2-3 actionable recommendations based on patterns and AI assignment effectiveness.
+      ]
+    }
+
+    Data Provided for Your Analysis (Focus on Patterns, Accuracy, Recommendations):
+    ----------------
+    Pre-computed Statistics:
+    ${JSON.stringify(precomputedStats, null, 2)}
+
+    Departments Information (for matching names and IDs):
+    ${JSON.stringify(departmentInfoForPrompt, null, 2)}
+
+    Tickets Data (last ${timeRange}) for pattern detection and accuracy calculation:
+    ${JSON.stringify(
+      summarizedTicketsForAIPatterns,
+      null,
+      2
+    )} // Note: each ticket includes 'assignedByAI', 'tags'.
+    ----------------
+
+    Instructions for your calculations:
+    1.  **accurateAssignments (Summary)**: Calculate as (Number of tickets where 'assignedByAI' is true) / (Total number of tickets where 'assignedByAI' is true) * 100. For this report, since we lack data on manual reassignments, if any tickets were assigned by AI (i.e., denominator > 0), this percentage will effectively be 100%. If no tickets were assigned by AI (denominator is 0), return 0.
+    2.  **patterns**: Identify 2-4 significant recurring issues, trends, or anomalies from the 'Tickets Data'. Consider titles, tags, and assignedByAI status. Provide actionable suggestions.
+    3.  **departments[].accuracy**: For each department, calculate its AI assignment accuracy. This is (Number of tickets *in this specific department* where 'assignedByAI' is true) / (Total number of tickets *in this specific department* where 'assignedByAI' is true) * 100. For this report, if a department has any AI-assigned tickets (denominator > 0), its accuracy will effectively be 100%. If the denominator for a department is 0 (no AI-assigned tickets in that department), its accuracy should be 0.
+    4.  **recommendations**: Suggest 2-3 concrete, actionable steps. These should be based on identified patterns, summary statistics (including AI assignment effectiveness), and department performance.
+    5.  **avgResolutionTime & satisfactionScore (Summary)**: These are provided or have fixed responses. Do not recalculate.
+    6.  **totalTickets & autoAssigned (Summary)**: These are provided. Do not recalculate.
+    7.  **departments[].volume**: This is provided in precomputedStats.departmentVolumes. Match by department name or ID. Ensure all provided departments are listed.
+
+    Respond ONLY with the valid JSON object. Do not include any explanatory text before or after the JSON.
+  `
+
+  try {
+    const completion = await openai.chat.completions.create({
+      model: 'gpt-3.5-turbo',
+      messages: [{ role: 'user', content: prompt }],
+      temperature: 0.2,
+      response_format: { type: 'json_object' },
+    })
+
+    const jsonResponseString = completion.choices[0]?.message?.content
+    if (!jsonResponseString) {
+      throw new ApiError('AI did not return a response string.', 500)
+    }
+
+    const parsedResponse = JSON.parse(jsonResponseString)
+
+    // Before returning, ensure the pre-calculated department volumes are correctly merged if AI didn't include them for all departments
+    // (though the prompt now explicitly tells it to use the provided volumes)
+    if (
+      parsedResponse.departments &&
+      Array.isArray(parsedResponse.departments)
+    ) {
+      parsedResponse.departments = departmentVolumes.map((pv) => {
+        const aiDeptData = parsedResponse.departments.find(
+          (ad: any) => ad.name === pv.name
+        )
+        return {
+          name: pv.name,
+          volume: pv.volume,
+          accuracy:
+            aiDeptData?.accuracy !== undefined ? aiDeptData.accuracy : 0, // Default accuracy if AI missed it
+        }
+      })
+    }
+
+    insightsCache.set(cacheKey, parsedResponse)
+    console.log(`Successfully generated and cached insights for ${timeRange}`)
+    return parsedResponse
+  } catch (error: any) {
+    console.error(
+      'Error calling OpenAI service for comprehensive insights:',
+      error.message
+    )
+    return {
+      error: true,
+      message: error.message || 'Failed to generate AI insights.',
+      details: error.stack,
+      fallbackInsights: {
+        summary: {
+          totalTickets: totalTickets, // Use pre-calculated
+          autoAssigned: autoAssignedCount, // Use pre-calculated
+          accurateAssignments: 0,
+          avgResolutionTime: avgResolutionTimeString, // Use pre-calculated
+          satisfactionScore: 'N/A',
+        },
+        patterns: [
+          {
+            id: 'err',
+            pattern: 'AI service error',
+            frequency: 0,
+            impact: 'High',
+            suggestion: 'Check service logs',
+          },
+        ],
+        departments: departmentVolumes.map((d) => ({
+          name: d.name,
+          accuracy: 0,
+          volume: d.volume,
+        })),
+        recommendations: [
+          {
+            id: 'err_reco',
+            title: 'Service Error',
+            description: 'AI insights generation failed.',
+            priority: 'High',
+            estimatedImpact: 'Insights unavailable',
+          },
+        ],
+      },
+    }
+  }
 }
 
 // Export types for use in controllers

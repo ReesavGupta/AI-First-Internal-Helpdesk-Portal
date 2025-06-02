@@ -3983,6 +3983,7 @@ export namespace Prisma {
     departmentId: string | null
     createdById: string | null
     assignedToId: string | null
+    assignedByAI: boolean | null
     createdAt: Date | null
     updatedAt: Date | null
   }
@@ -3996,6 +3997,7 @@ export namespace Prisma {
     departmentId: string | null
     createdById: string | null
     assignedToId: string | null
+    assignedByAI: boolean | null
     createdAt: Date | null
     updatedAt: Date | null
   }
@@ -4011,6 +4013,7 @@ export namespace Prisma {
     departmentId: number
     createdById: number
     assignedToId: number
+    assignedByAI: number
     createdAt: number
     updatedAt: number
     _all: number
@@ -4026,6 +4029,7 @@ export namespace Prisma {
     departmentId?: true
     createdById?: true
     assignedToId?: true
+    assignedByAI?: true
     createdAt?: true
     updatedAt?: true
   }
@@ -4039,6 +4043,7 @@ export namespace Prisma {
     departmentId?: true
     createdById?: true
     assignedToId?: true
+    assignedByAI?: true
     createdAt?: true
     updatedAt?: true
   }
@@ -4054,6 +4059,7 @@ export namespace Prisma {
     departmentId?: true
     createdById?: true
     assignedToId?: true
+    assignedByAI?: true
     createdAt?: true
     updatedAt?: true
     _all?: true
@@ -4142,6 +4148,7 @@ export namespace Prisma {
     departmentId: string
     createdById: string
     assignedToId: string | null
+    assignedByAI: boolean | null
     createdAt: Date
     updatedAt: Date
     _count: TicketCountAggregateOutputType | null
@@ -4174,6 +4181,7 @@ export namespace Prisma {
     departmentId?: boolean
     createdById?: boolean
     assignedToId?: boolean
+    assignedByAI?: boolean
     createdAt?: boolean
     updatedAt?: boolean
     department?: boolean | DepartmentDefaultArgs<ExtArgs>
@@ -4195,6 +4203,7 @@ export namespace Prisma {
     departmentId?: boolean
     createdById?: boolean
     assignedToId?: boolean
+    assignedByAI?: boolean
     createdAt?: boolean
     updatedAt?: boolean
     department?: boolean | DepartmentDefaultArgs<ExtArgs>
@@ -4213,6 +4222,7 @@ export namespace Prisma {
     departmentId?: boolean
     createdById?: boolean
     assignedToId?: boolean
+    assignedByAI?: boolean
     createdAt?: boolean
     updatedAt?: boolean
     department?: boolean | DepartmentDefaultArgs<ExtArgs>
@@ -4231,11 +4241,12 @@ export namespace Prisma {
     departmentId?: boolean
     createdById?: boolean
     assignedToId?: boolean
+    assignedByAI?: boolean
     createdAt?: boolean
     updatedAt?: boolean
   }
 
-  export type TicketOmit<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetOmit<"id" | "title" | "description" | "status" | "priority" | "tags" | "fileUrls" | "departmentId" | "createdById" | "assignedToId" | "createdAt" | "updatedAt", ExtArgs["result"]["ticket"]>
+  export type TicketOmit<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetOmit<"id" | "title" | "description" | "status" | "priority" | "tags" | "fileUrls" | "departmentId" | "createdById" | "assignedToId" | "assignedByAI" | "createdAt" | "updatedAt", ExtArgs["result"]["ticket"]>
   export type TicketInclude<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
     department?: boolean | DepartmentDefaultArgs<ExtArgs>
     createdBy?: boolean | UserDefaultArgs<ExtArgs>
@@ -4275,6 +4286,7 @@ export namespace Prisma {
       departmentId: string
       createdById: string
       assignedToId: string | null
+      assignedByAI: boolean | null
       createdAt: Date
       updatedAt: Date
     }, ExtArgs["result"]["ticket"]>
@@ -4715,6 +4727,7 @@ export namespace Prisma {
     readonly departmentId: FieldRef<"Ticket", 'String'>
     readonly createdById: FieldRef<"Ticket", 'String'>
     readonly assignedToId: FieldRef<"Ticket", 'String'>
+    readonly assignedByAI: FieldRef<"Ticket", 'Boolean'>
     readonly createdAt: FieldRef<"Ticket", 'DateTime'>
     readonly updatedAt: FieldRef<"Ticket", 'DateTime'>
   }
@@ -9504,6 +9517,7 @@ export namespace Prisma {
     departmentId: 'departmentId',
     createdById: 'createdById',
     assignedToId: 'assignedToId',
+    assignedByAI: 'assignedByAI',
     createdAt: 'createdAt',
     updatedAt: 'updatedAt'
   };
@@ -9682,6 +9696,13 @@ export namespace Prisma {
 
 
   /**
+   * Reference to a field of type 'Boolean'
+   */
+  export type BooleanFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'Boolean'>
+    
+
+
+  /**
    * Reference to a field of type 'FAQVisibility'
    */
   export type EnumFAQVisibilityFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'FAQVisibility'>
@@ -9706,13 +9727,6 @@ export namespace Prisma {
    * Reference to a field of type 'NotificationType[]'
    */
   export type ListEnumNotificationTypeFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'NotificationType[]'>
-    
-
-
-  /**
-   * Reference to a field of type 'Boolean'
-   */
-  export type BooleanFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'Boolean'>
     
 
 
@@ -9906,6 +9920,7 @@ export namespace Prisma {
     departmentId?: StringFilter<"Ticket"> | string
     createdById?: StringFilter<"Ticket"> | string
     assignedToId?: StringNullableFilter<"Ticket"> | string | null
+    assignedByAI?: BoolNullableFilter<"Ticket"> | boolean | null
     createdAt?: DateTimeFilter<"Ticket"> | Date | string
     updatedAt?: DateTimeFilter<"Ticket"> | Date | string
     department?: XOR<DepartmentScalarRelationFilter, DepartmentWhereInput>
@@ -9926,6 +9941,7 @@ export namespace Prisma {
     departmentId?: SortOrder
     createdById?: SortOrder
     assignedToId?: SortOrderInput | SortOrder
+    assignedByAI?: SortOrderInput | SortOrder
     createdAt?: SortOrder
     updatedAt?: SortOrder
     department?: DepartmentOrderByWithRelationInput
@@ -9949,6 +9965,7 @@ export namespace Prisma {
     departmentId?: StringFilter<"Ticket"> | string
     createdById?: StringFilter<"Ticket"> | string
     assignedToId?: StringNullableFilter<"Ticket"> | string | null
+    assignedByAI?: BoolNullableFilter<"Ticket"> | boolean | null
     createdAt?: DateTimeFilter<"Ticket"> | Date | string
     updatedAt?: DateTimeFilter<"Ticket"> | Date | string
     department?: XOR<DepartmentScalarRelationFilter, DepartmentWhereInput>
@@ -9969,6 +9986,7 @@ export namespace Prisma {
     departmentId?: SortOrder
     createdById?: SortOrder
     assignedToId?: SortOrderInput | SortOrder
+    assignedByAI?: SortOrderInput | SortOrder
     createdAt?: SortOrder
     updatedAt?: SortOrder
     _count?: TicketCountOrderByAggregateInput
@@ -9990,6 +10008,7 @@ export namespace Prisma {
     departmentId?: StringWithAggregatesFilter<"Ticket"> | string
     createdById?: StringWithAggregatesFilter<"Ticket"> | string
     assignedToId?: StringNullableWithAggregatesFilter<"Ticket"> | string | null
+    assignedByAI?: BoolNullableWithAggregatesFilter<"Ticket"> | boolean | null
     createdAt?: DateTimeWithAggregatesFilter<"Ticket"> | Date | string
     updatedAt?: DateTimeWithAggregatesFilter<"Ticket"> | Date | string
   }
@@ -10435,6 +10454,7 @@ export namespace Prisma {
     priority?: $Enums.TicketPriority
     tags?: TicketCreatetagsInput | string[]
     fileUrls?: TicketCreatefileUrlsInput | string[]
+    assignedByAI?: boolean | null
     createdAt?: Date | string
     updatedAt?: Date | string
     department: DepartmentCreateNestedOneWithoutTicketsInput
@@ -10455,6 +10475,7 @@ export namespace Prisma {
     departmentId: string
     createdById: string
     assignedToId?: string | null
+    assignedByAI?: boolean | null
     createdAt?: Date | string
     updatedAt?: Date | string
     responses?: TicketResponseUncheckedCreateNestedManyWithoutTicketInput
@@ -10469,6 +10490,7 @@ export namespace Prisma {
     priority?: EnumTicketPriorityFieldUpdateOperationsInput | $Enums.TicketPriority
     tags?: TicketUpdatetagsInput | string[]
     fileUrls?: TicketUpdatefileUrlsInput | string[]
+    assignedByAI?: NullableBoolFieldUpdateOperationsInput | boolean | null
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
     department?: DepartmentUpdateOneRequiredWithoutTicketsNestedInput
@@ -10489,6 +10511,7 @@ export namespace Prisma {
     departmentId?: StringFieldUpdateOperationsInput | string
     createdById?: StringFieldUpdateOperationsInput | string
     assignedToId?: NullableStringFieldUpdateOperationsInput | string | null
+    assignedByAI?: NullableBoolFieldUpdateOperationsInput | boolean | null
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
     responses?: TicketResponseUncheckedUpdateManyWithoutTicketNestedInput
@@ -10506,6 +10529,7 @@ export namespace Prisma {
     departmentId: string
     createdById: string
     assignedToId?: string | null
+    assignedByAI?: boolean | null
     createdAt?: Date | string
     updatedAt?: Date | string
   }
@@ -10518,6 +10542,7 @@ export namespace Prisma {
     priority?: EnumTicketPriorityFieldUpdateOperationsInput | $Enums.TicketPriority
     tags?: TicketUpdatetagsInput | string[]
     fileUrls?: TicketUpdatefileUrlsInput | string[]
+    assignedByAI?: NullableBoolFieldUpdateOperationsInput | boolean | null
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
   }
@@ -10533,6 +10558,7 @@ export namespace Prisma {
     departmentId?: StringFieldUpdateOperationsInput | string
     createdById?: StringFieldUpdateOperationsInput | string
     assignedToId?: NullableStringFieldUpdateOperationsInput | string | null
+    assignedByAI?: NullableBoolFieldUpdateOperationsInput | boolean | null
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
   }
@@ -11065,6 +11091,11 @@ export namespace Prisma {
     not?: NestedEnumTicketPriorityFilter<$PrismaModel> | $Enums.TicketPriority
   }
 
+  export type BoolNullableFilter<$PrismaModel = never> = {
+    equals?: boolean | BooleanFieldRefInput<$PrismaModel> | null
+    not?: NestedBoolNullableFilter<$PrismaModel> | boolean | null
+  }
+
   export type DepartmentScalarRelationFilter = {
     is?: DepartmentWhereInput
     isNot?: DepartmentWhereInput
@@ -11091,6 +11122,7 @@ export namespace Prisma {
     departmentId?: SortOrder
     createdById?: SortOrder
     assignedToId?: SortOrder
+    assignedByAI?: SortOrder
     createdAt?: SortOrder
     updatedAt?: SortOrder
   }
@@ -11104,6 +11136,7 @@ export namespace Prisma {
     departmentId?: SortOrder
     createdById?: SortOrder
     assignedToId?: SortOrder
+    assignedByAI?: SortOrder
     createdAt?: SortOrder
     updatedAt?: SortOrder
   }
@@ -11117,6 +11150,7 @@ export namespace Prisma {
     departmentId?: SortOrder
     createdById?: SortOrder
     assignedToId?: SortOrder
+    assignedByAI?: SortOrder
     createdAt?: SortOrder
     updatedAt?: SortOrder
   }
@@ -11139,6 +11173,14 @@ export namespace Prisma {
     _count?: NestedIntFilter<$PrismaModel>
     _min?: NestedEnumTicketPriorityFilter<$PrismaModel>
     _max?: NestedEnumTicketPriorityFilter<$PrismaModel>
+  }
+
+  export type BoolNullableWithAggregatesFilter<$PrismaModel = never> = {
+    equals?: boolean | BooleanFieldRefInput<$PrismaModel> | null
+    not?: NestedBoolNullableWithAggregatesFilter<$PrismaModel> | boolean | null
+    _count?: NestedIntNullableFilter<$PrismaModel>
+    _min?: NestedBoolNullableFilter<$PrismaModel>
+    _max?: NestedBoolNullableFilter<$PrismaModel>
   }
 
   export type TicketScalarRelationFilter = {
@@ -11755,6 +11797,10 @@ export namespace Prisma {
     push?: string | string[]
   }
 
+  export type NullableBoolFieldUpdateOperationsInput = {
+    set?: boolean | null
+  }
+
   export type DepartmentUpdateOneRequiredWithoutTicketsNestedInput = {
     create?: XOR<DepartmentCreateWithoutTicketsInput, DepartmentUncheckedCreateWithoutTicketsInput>
     connectOrCreate?: DepartmentCreateOrConnectWithoutTicketsInput
@@ -12078,6 +12124,11 @@ export namespace Prisma {
     not?: NestedEnumTicketPriorityFilter<$PrismaModel> | $Enums.TicketPriority
   }
 
+  export type NestedBoolNullableFilter<$PrismaModel = never> = {
+    equals?: boolean | BooleanFieldRefInput<$PrismaModel> | null
+    not?: NestedBoolNullableFilter<$PrismaModel> | boolean | null
+  }
+
   export type NestedEnumTicketStatusWithAggregatesFilter<$PrismaModel = never> = {
     equals?: $Enums.TicketStatus | EnumTicketStatusFieldRefInput<$PrismaModel>
     in?: $Enums.TicketStatus[] | ListEnumTicketStatusFieldRefInput<$PrismaModel>
@@ -12096,6 +12147,14 @@ export namespace Prisma {
     _count?: NestedIntFilter<$PrismaModel>
     _min?: NestedEnumTicketPriorityFilter<$PrismaModel>
     _max?: NestedEnumTicketPriorityFilter<$PrismaModel>
+  }
+
+  export type NestedBoolNullableWithAggregatesFilter<$PrismaModel = never> = {
+    equals?: boolean | BooleanFieldRefInput<$PrismaModel> | null
+    not?: NestedBoolNullableWithAggregatesFilter<$PrismaModel> | boolean | null
+    _count?: NestedIntNullableFilter<$PrismaModel>
+    _min?: NestedBoolNullableFilter<$PrismaModel>
+    _max?: NestedBoolNullableFilter<$PrismaModel>
   }
 
   export type NestedEnumFAQVisibilityFilter<$PrismaModel = never> = {
@@ -12224,6 +12283,7 @@ export namespace Prisma {
     priority?: $Enums.TicketPriority
     tags?: TicketCreatetagsInput | string[]
     fileUrls?: TicketCreatefileUrlsInput | string[]
+    assignedByAI?: boolean | null
     createdAt?: Date | string
     updatedAt?: Date | string
     department: DepartmentCreateNestedOneWithoutTicketsInput
@@ -12242,6 +12302,7 @@ export namespace Prisma {
     fileUrls?: TicketCreatefileUrlsInput | string[]
     departmentId: string
     assignedToId?: string | null
+    assignedByAI?: boolean | null
     createdAt?: Date | string
     updatedAt?: Date | string
     responses?: TicketResponseUncheckedCreateNestedManyWithoutTicketInput
@@ -12266,6 +12327,7 @@ export namespace Prisma {
     priority?: $Enums.TicketPriority
     tags?: TicketCreatetagsInput | string[]
     fileUrls?: TicketCreatefileUrlsInput | string[]
+    assignedByAI?: boolean | null
     createdAt?: Date | string
     updatedAt?: Date | string
     department: DepartmentCreateNestedOneWithoutTicketsInput
@@ -12284,6 +12346,7 @@ export namespace Prisma {
     fileUrls?: TicketCreatefileUrlsInput | string[]
     departmentId: string
     createdById: string
+    assignedByAI?: boolean | null
     createdAt?: Date | string
     updatedAt?: Date | string
     responses?: TicketResponseUncheckedCreateNestedManyWithoutTicketInput
@@ -12417,6 +12480,7 @@ export namespace Prisma {
     departmentId?: StringFilter<"Ticket"> | string
     createdById?: StringFilter<"Ticket"> | string
     assignedToId?: StringNullableFilter<"Ticket"> | string | null
+    assignedByAI?: BoolNullableFilter<"Ticket"> | boolean | null
     createdAt?: DateTimeFilter<"Ticket"> | Date | string
     updatedAt?: DateTimeFilter<"Ticket"> | Date | string
   }
@@ -12544,6 +12608,7 @@ export namespace Prisma {
     priority?: $Enums.TicketPriority
     tags?: TicketCreatetagsInput | string[]
     fileUrls?: TicketCreatefileUrlsInput | string[]
+    assignedByAI?: boolean | null
     createdAt?: Date | string
     updatedAt?: Date | string
     createdBy: UserCreateNestedOneWithoutCreatedTicketsInput
@@ -12562,6 +12627,7 @@ export namespace Prisma {
     fileUrls?: TicketCreatefileUrlsInput | string[]
     createdById: string
     assignedToId?: string | null
+    assignedByAI?: boolean | null
     createdAt?: Date | string
     updatedAt?: Date | string
     responses?: TicketResponseUncheckedCreateNestedManyWithoutTicketInput
@@ -12927,6 +12993,7 @@ export namespace Prisma {
     priority?: $Enums.TicketPriority
     tags?: TicketCreatetagsInput | string[]
     fileUrls?: TicketCreatefileUrlsInput | string[]
+    assignedByAI?: boolean | null
     createdAt?: Date | string
     updatedAt?: Date | string
     department: DepartmentCreateNestedOneWithoutTicketsInput
@@ -12946,6 +13013,7 @@ export namespace Prisma {
     departmentId: string
     createdById: string
     assignedToId?: string | null
+    assignedByAI?: boolean | null
     createdAt?: Date | string
     updatedAt?: Date | string
     notifications?: NotificationUncheckedCreateNestedManyWithoutTicketInput
@@ -13010,6 +13078,7 @@ export namespace Prisma {
     priority?: EnumTicketPriorityFieldUpdateOperationsInput | $Enums.TicketPriority
     tags?: TicketUpdatetagsInput | string[]
     fileUrls?: TicketUpdatefileUrlsInput | string[]
+    assignedByAI?: NullableBoolFieldUpdateOperationsInput | boolean | null
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
     department?: DepartmentUpdateOneRequiredWithoutTicketsNestedInput
@@ -13029,6 +13098,7 @@ export namespace Prisma {
     departmentId?: StringFieldUpdateOperationsInput | string
     createdById?: StringFieldUpdateOperationsInput | string
     assignedToId?: NullableStringFieldUpdateOperationsInput | string | null
+    assignedByAI?: NullableBoolFieldUpdateOperationsInput | boolean | null
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
     notifications?: NotificationUncheckedUpdateManyWithoutTicketNestedInput
@@ -13118,6 +13188,7 @@ export namespace Prisma {
     priority?: $Enums.TicketPriority
     tags?: TicketCreatetagsInput | string[]
     fileUrls?: TicketCreatefileUrlsInput | string[]
+    assignedByAI?: boolean | null
     createdAt?: Date | string
     updatedAt?: Date | string
     department: DepartmentCreateNestedOneWithoutTicketsInput
@@ -13137,6 +13208,7 @@ export namespace Prisma {
     departmentId: string
     createdById: string
     assignedToId?: string | null
+    assignedByAI?: boolean | null
     createdAt?: Date | string
     updatedAt?: Date | string
     responses?: TicketResponseUncheckedCreateNestedManyWithoutTicketInput
@@ -13207,6 +13279,7 @@ export namespace Prisma {
     priority?: EnumTicketPriorityFieldUpdateOperationsInput | $Enums.TicketPriority
     tags?: TicketUpdatetagsInput | string[]
     fileUrls?: TicketUpdatefileUrlsInput | string[]
+    assignedByAI?: NullableBoolFieldUpdateOperationsInput | boolean | null
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
     department?: DepartmentUpdateOneRequiredWithoutTicketsNestedInput
@@ -13226,6 +13299,7 @@ export namespace Prisma {
     departmentId?: StringFieldUpdateOperationsInput | string
     createdById?: StringFieldUpdateOperationsInput | string
     assignedToId?: NullableStringFieldUpdateOperationsInput | string | null
+    assignedByAI?: NullableBoolFieldUpdateOperationsInput | boolean | null
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
     responses?: TicketResponseUncheckedUpdateManyWithoutTicketNestedInput
@@ -13241,6 +13315,7 @@ export namespace Prisma {
     fileUrls?: TicketCreatefileUrlsInput | string[]
     departmentId: string
     assignedToId?: string | null
+    assignedByAI?: boolean | null
     createdAt?: Date | string
     updatedAt?: Date | string
   }
@@ -13255,6 +13330,7 @@ export namespace Prisma {
     fileUrls?: TicketCreatefileUrlsInput | string[]
     departmentId: string
     createdById: string
+    assignedByAI?: boolean | null
     createdAt?: Date | string
     updatedAt?: Date | string
   }
@@ -13286,6 +13362,7 @@ export namespace Prisma {
     priority?: EnumTicketPriorityFieldUpdateOperationsInput | $Enums.TicketPriority
     tags?: TicketUpdatetagsInput | string[]
     fileUrls?: TicketUpdatefileUrlsInput | string[]
+    assignedByAI?: NullableBoolFieldUpdateOperationsInput | boolean | null
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
     department?: DepartmentUpdateOneRequiredWithoutTicketsNestedInput
@@ -13304,6 +13381,7 @@ export namespace Prisma {
     fileUrls?: TicketUpdatefileUrlsInput | string[]
     departmentId?: StringFieldUpdateOperationsInput | string
     assignedToId?: NullableStringFieldUpdateOperationsInput | string | null
+    assignedByAI?: NullableBoolFieldUpdateOperationsInput | boolean | null
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
     responses?: TicketResponseUncheckedUpdateManyWithoutTicketNestedInput
@@ -13320,6 +13398,7 @@ export namespace Prisma {
     fileUrls?: TicketUpdatefileUrlsInput | string[]
     departmentId?: StringFieldUpdateOperationsInput | string
     assignedToId?: NullableStringFieldUpdateOperationsInput | string | null
+    assignedByAI?: NullableBoolFieldUpdateOperationsInput | boolean | null
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
   }
@@ -13332,6 +13411,7 @@ export namespace Prisma {
     priority?: EnumTicketPriorityFieldUpdateOperationsInput | $Enums.TicketPriority
     tags?: TicketUpdatetagsInput | string[]
     fileUrls?: TicketUpdatefileUrlsInput | string[]
+    assignedByAI?: NullableBoolFieldUpdateOperationsInput | boolean | null
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
     department?: DepartmentUpdateOneRequiredWithoutTicketsNestedInput
@@ -13350,6 +13430,7 @@ export namespace Prisma {
     fileUrls?: TicketUpdatefileUrlsInput | string[]
     departmentId?: StringFieldUpdateOperationsInput | string
     createdById?: StringFieldUpdateOperationsInput | string
+    assignedByAI?: NullableBoolFieldUpdateOperationsInput | boolean | null
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
     responses?: TicketResponseUncheckedUpdateManyWithoutTicketNestedInput
@@ -13366,6 +13447,7 @@ export namespace Prisma {
     fileUrls?: TicketUpdatefileUrlsInput | string[]
     departmentId?: StringFieldUpdateOperationsInput | string
     createdById?: StringFieldUpdateOperationsInput | string
+    assignedByAI?: NullableBoolFieldUpdateOperationsInput | boolean | null
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
   }
@@ -13448,6 +13530,7 @@ export namespace Prisma {
     fileUrls?: TicketCreatefileUrlsInput | string[]
     createdById: string
     assignedToId?: string | null
+    assignedByAI?: boolean | null
     createdAt?: Date | string
     updatedAt?: Date | string
   }
@@ -13501,6 +13584,7 @@ export namespace Prisma {
     priority?: EnumTicketPriorityFieldUpdateOperationsInput | $Enums.TicketPriority
     tags?: TicketUpdatetagsInput | string[]
     fileUrls?: TicketUpdatefileUrlsInput | string[]
+    assignedByAI?: NullableBoolFieldUpdateOperationsInput | boolean | null
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
     createdBy?: UserUpdateOneRequiredWithoutCreatedTicketsNestedInput
@@ -13519,6 +13603,7 @@ export namespace Prisma {
     fileUrls?: TicketUpdatefileUrlsInput | string[]
     createdById?: StringFieldUpdateOperationsInput | string
     assignedToId?: NullableStringFieldUpdateOperationsInput | string | null
+    assignedByAI?: NullableBoolFieldUpdateOperationsInput | boolean | null
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
     responses?: TicketResponseUncheckedUpdateManyWithoutTicketNestedInput
@@ -13535,6 +13620,7 @@ export namespace Prisma {
     fileUrls?: TicketUpdatefileUrlsInput | string[]
     createdById?: StringFieldUpdateOperationsInput | string
     assignedToId?: NullableStringFieldUpdateOperationsInput | string | null
+    assignedByAI?: NullableBoolFieldUpdateOperationsInput | boolean | null
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
   }

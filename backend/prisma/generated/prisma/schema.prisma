@@ -1,0 +1,177 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client-js"
+  output   = "./generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum UserRole {
+  EMPLOYEE
+  AGENT
+  ADMIN
+}
+
+enum TicketStatus {
+  OPEN
+  IN_PROGRESS
+  RESOLVED
+  CLOSED
+}
+
+enum TicketPriority {
+  LOW
+  MEDIUM
+  HIGH
+}
+
+enum FAQVisibility {
+  PUBLIC
+  INTERNAL
+}
+
+enum NotificationType {
+  TICKET_CREATED
+  TICKET_ASSIGNED
+  TICKET_STATUS_UPDATED
+  TICKET_RESPONSE
+  SLA_WARNING
+  ASSIGNMENT
+  PATTERN_DETECTED
+  SYSTEM_NOTIFICATION
+}
+
+model User {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  password     String
+  name         String
+  avatarUrl    String?
+  role         UserRole @default(EMPLOYEE)
+  departmentId String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  // Relations
+  department      Department?      @relation(fields: [departmentId], references: [id])
+  createdTickets  Ticket[]         @relation("TicketCreator")
+  assignedTickets Ticket[]         @relation("TicketAssignee")
+  notifications   Notification[]   @relation("NotificationTarget")
+  ticketResponses TicketResponse[]
+
+  @@map("users")
+}
+
+model Department {
+  id        String   @id @default(cuid())
+  name      String   @unique
+  keywords  String[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  users   User[]
+  tickets Ticket[]
+
+  @@map("departments")
+}
+
+model Ticket {
+  id           String         @id @default(cuid())
+  title        String
+  description  String
+  status       TicketStatus   @default(OPEN)
+  priority     TicketPriority @default(MEDIUM)
+  tags         String[]
+  fileUrls     String[]
+  departmentId String
+  createdById  String
+  assignedToId String?
+  assignedByAI Boolean?       @default(false)
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
+
+  // Relations
+  department    Department       @relation(fields: [departmentId], references: [id])
+  createdBy     User             @relation("TicketCreator", fields: [createdById], references: [id])
+  assignedTo    User?            @relation("TicketAssignee", fields: [assignedToId], references: [id])
+  responses     TicketResponse[]
+  notifications Notification[]   @relation("TicketNotifications")
+
+  @@map("tickets")
+}
+
+model TicketResponse {
+  id        String   @id @default(cuid())
+  content   String
+  fileUrls  String[]
+  ticketId  String
+  userId    String
+  createdAt DateTime @default(now())
+
+  // Relations
+  ticket Ticket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  user   User   @relation(fields: [userId], references: [id])
+
+  @@map("ticket_responses")
+}
+
+model FAQ {
+  id         String        @id @default(cuid())
+  question   String
+  answer     String
+  tags       String[]
+  visibility FAQVisibility @default(PUBLIC)
+  createdAt  DateTime      @default(now())
+  updatedAt  DateTime      @updatedAt
+
+  @@map("faqs")
+}
+
+model Notification {
+  id           String           @id @default(cuid())
+  message      String
+  type         NotificationType
+  read         Boolean          @default(false)
+  readAt       DateTime?
+  targetUserId String
+  ticketId     String?
+  metadata     Json?
+  createdAt    DateTime         @default(now())
+
+  // Relations
+  targetUser User    @relation("NotificationTarget", fields: [targetUserId], references: [id], onDelete: Cascade)
+  ticket     Ticket? @relation("TicketNotifications", fields: [ticketId], references: [id], onDelete: Cascade)
+
+  // Indexes for better query performance
+  @@index([targetUserId, read])
+  @@index([targetUserId, createdAt])
+  @@index([ticketId])
+  @@index([type])
+  @@map("notifications")
+}
+
+model Document {
+  id        String   @id @default(cuid())
+  title     String
+  content   String // Full document content
+  category  String // e.g., "HR", "IT", "Finance", "General"
+  tags      String[] // For better search
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Indexes for better search performance
+  @@index([category])
+  @@index([isActive])
+  @@index([title])
+  @@map("documents")
+}

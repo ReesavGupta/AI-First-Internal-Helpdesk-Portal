@@ -24,6 +24,8 @@ export function NotificationDropdown() {
     deleteNotification,
   } = useNotifications()
 
+  console.log('[NotificationDropdown] unreadCount:', unreadCount)
+
   const recentNotifications = notifications.slice(0, 10)
 
   return (
@@ -87,9 +89,12 @@ export function NotificationDropdown() {
                     {notification.message}
                   </p>
                   <p className="text-xs text-muted-foreground">
-                    {formatDistanceToNow(new Date(notification.createdAt), {
-                      addSuffix: true,
-                    })}
+                    {notification.createdAt &&
+                    !isNaN(new Date(notification.createdAt).getTime())
+                      ? formatDistanceToNow(new Date(notification.createdAt), {
+                          addSuffix: true,
+                        })
+                      : 'Date not available'}
                   </p>
                 </div>
                 <div className="flex items-center space-x-1">

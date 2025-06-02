@@ -32,7 +32,7 @@ router.post(
 )
 
 // Get all departments
-router.get('/', authenticate, getDepartments)
+router.get('/', getDepartments)
 
 // Get specific department by ID
 router.get(

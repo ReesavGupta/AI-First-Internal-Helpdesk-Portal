@@ -95,6 +95,7 @@ model Ticket {
   departmentId String
   createdById  String
   assignedToId String?
+  assignedByAI Boolean?       @default(false)
   createdAt    DateTime       @default(now())
   updatedAt    DateTime       @updatedAt
 

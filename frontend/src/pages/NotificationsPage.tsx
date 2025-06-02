@@ -143,87 +143,115 @@ export function NotificationsPage() {
         </Card>
       ) : (
         <div className="space-y-3">
-          {filteredNotifications.map((notification) => (
-            <Card
-              key={notification.id}
-              className={`transition-all hover:shadow-md ${
-                !notification.read ? 'border-l-4 border-l-primary' : ''
-              }`}
-            >
-              <CardContent className="p-4">
-                <div className="flex items-start space-x-4">
-                  <div className="text-2xl">
-                    {getNotificationIcon(notification.type)}
-                  </div>
+          {filteredNotifications
+            .filter((notification) => notification.id)
+            .map((notification, index) => (
+              <Card
+                key={`notification-${notification.id}`}
+                className={`transition-all hover:shadow-md ${
+                  !notification.read ? 'border-l-4 border-l-primary' : ''
+                }`}
+              >
+                <CardContent className="p-4">
+                  <div className="flex items-start space-x-4">
+                    <div className="text-2xl">
+                      {getNotificationIcon(notification.type)}
+                    </div>
 
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-start justify-between">
-                      <div className="flex-1">
-                        <p
-                          className={`text-sm ${
-                            !notification.read ? 'font-medium' : ''
-                          }`}
-                        >
-                          {notification.message}
-                        </p>
-                        <div className="flex items-center space-x-2 mt-2">
-                          <Badge
-                            variant={getNotificationColor(notification.type)}
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-start justify-between">
+                        <div className="flex-1">
+                          <p
+                            className={`text-sm ${
+                              !notification.read ? 'font-medium' : ''
+                            }`}
                           >
-                            {notification.type.replace(/_/g, ' ')}
-                          </Badge>
-                          <span className="text-xs text-muted-foreground">
-                            {formatDistanceToNow(
-                              new Date(notification.createdAt),
-                              { addSuffix: true }
-                            )}
-                          </span>
-                          {!notification.read && (
+                            {notification.message}
+                          </p>
+                          <div className="flex items-center space-x-2 mt-2">
                             <Badge
-                              variant="destructive"
-                              className="text-xs"
+                              variant={getNotificationColor(notification.type)}
                             >
-                              New
+                              {notification.type.replace(/_/g, ' ')}
                             </Badge>
-                          )}
+                            <span className="text-xs text-muted-foreground">
+                              {notification.createdAt &&
+                              !isNaN(new Date(notification.createdAt).getTime())
+                                ? formatDistanceToNow(
+                                    new Date(notification.createdAt),
+                                    { addSuffix: true }
+                                  )
+                                : 'Date not available'}
+                            </span>
+                            {!notification.read && (
+                              <Badge
+                                variant="destructive"
+                                className="text-xs"
+                              >
+                                New
+                              </Badge>
+                            )}
+                          </div>
                         </div>
-                      </div>
 
-                      <div className="flex items-center space-x-2 ml-4">
-                        {!notification.read && (
+                        <div className="flex items-center space-x-2 ml-4">
+                          {!notification.read && (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => {
+                                console.log(
+                                  'Attempting to mark as read:',
+                                  notification
+                                )
+                                if (notification.id) {
+                                  markAsRead(notification.id)
+                                } else {
+                                  console.error(
+                                    'Cannot mark as read, notification ID is undefined:',
+                                    notification
+                                  )
+                                }
+                              }}
+                            >
+                              <Check className="h-4 w-4" />
+                            </Button>
+                          )}
                           <Button
                             variant="ghost"
                             size="sm"
-                            onClick={() => markAsRead(notification.id)}
+                            onClick={() => {
+                              console.log('Attempting to delete:', notification)
+                              if (notification.id) {
+                                deleteNotification(notification.id)
+                              } else {
+                                console.error(
+                                  'Cannot delete, notification ID is undefined:',
+                                  notification
+                                )
+                              }
+                            }}
                           >
-                            <Check className="h-4 w-4" />
+                            <Trash2 className="h-4 w-4" />
                           </Button>
-                        )}
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => deleteNotification(notification.id)}
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
+                        </div>
                       </div>
-                    </div>
 
-                    {notification.ticketId && (
-                      <div className="mt-2">
-                        <Link
-                          to={`/tickets/${notification.ticketId}`}
-                          className="text-sm text-primary hover:underline"
-                        >
-                          View Ticket →
-                        </Link>
-                      </div>
-                    )}
+                      {notification.ticketId && (
+                        <div className="mt-2">
+                          <Link
+                            to={`/tickets/${notification.ticketId}`}
+                            className="text-sm text-primary hover:underline"
+                          >
+                            View Ticket →
+                          </Link>
+                        </div>
+                      )}
+                    </div>
                   </div>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
+                </CardContent>
+              </Card>
+            ))}
         </div>
       )}
     </div>

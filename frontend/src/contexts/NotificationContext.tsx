@@ -49,6 +49,15 @@ export function NotificationProvider({
 
   useEffect(() => {
     if (notificationsData?.notifications) {
+      // Log if any fetched notification is missing an ID
+      notificationsData.notifications.forEach((n: Notification) => {
+        if (!n.id) {
+          console.error(
+            '[NotificationContext] Fetched notification missing ID:',
+            n
+          )
+        }
+      })
       setNotifications(notificationsData.notifications)
     }
   }, [notificationsData])
@@ -56,15 +65,61 @@ export function NotificationProvider({
   // Listen for WebSocket notifications
   useEffect(() => {
     const handleNotification = (event: CustomEvent) => {
-      const newNotification = event.detail
-      setNotifications((prev) => [newNotification, ...prev])
-      queryClient.invalidateQueries({ queryKey: ['notification-stats'] })
+      const wsMessagePayload = event.detail
 
-      // Show toast for new notification
-      toast({
-        title: 'New Notification',
-        description: newNotification.message,
-      })
+      // Check the type of the WebSocket message payload
+      if (
+        wsMessagePayload &&
+        wsMessagePayload.type === 'notification_deleted'
+      ) {
+        const { notificationId } = wsMessagePayload
+        if (notificationId) {
+          console.log(
+            '[NotificationContext] WebSocket received notification_deleted for ID:',
+            notificationId
+          )
+          setNotifications((prev) =>
+            prev.filter((n) => n.id !== notificationId)
+          )
+          queryClient.invalidateQueries({ queryKey: ['notification-stats'] })
+        } else {
+          console.error(
+            '[NotificationContext] WebSocket notification_deleted message missing notificationId:',
+            wsMessagePayload
+          )
+        }
+      } else if (wsMessagePayload && wsMessagePayload.id) {
+        // Assume it's a new/updated full Notification object if it has an 'id'
+        const newNotification = wsMessagePayload as Notification
+        console.log(
+          '[NotificationContext] WebSocket received new/updated notification:',
+          newNotification
+        )
+
+        setNotifications((prev) => {
+          const existingIndex = prev.findIndex(
+            (n) => n.id === newNotification.id
+          )
+          if (existingIndex !== -1) {
+            const updatedNotifications = [...prev]
+            updatedNotifications[existingIndex] = newNotification
+            return updatedNotifications
+          } else {
+            return [newNotification, ...prev]
+          }
+        })
+        queryClient.invalidateQueries({ queryKey: ['notification-stats'] })
+        toast({
+          title: 'New Notification',
+          description: newNotification.message,
+        })
+      } else {
+        // Handle other types of messages or log an error for unexpected structure
+        console.error(
+          '[NotificationContext] Received WebSocket message with unexpected structure:',
+          wsMessagePayload
+        )
+      }
     }
 
     window.addEventListener(
@@ -83,13 +138,17 @@ export function NotificationProvider({
   const markAsReadMutation = useMutation({
     mutationFn: apiClient.markNotificationRead,
     onSuccess: (_, id) => {
-      setNotifications((prev) =>
-        prev.map((notification) =>
+      console.log('[NotificationContext] Mark as read - ID:', id)
+      setNotifications((prev) => {
+        console.log('[NotificationContext] Before markAsRead update:', prev)
+        const updated = prev.map((notification) =>
           notification.id === id
             ? { ...notification, read: true, readAt: new Date().toISOString() }
             : notification
         )
-      )
+        console.log('[NotificationContext] After markAsRead update:', updated)
+        return updated
+      })
       queryClient.invalidateQueries({ queryKey: ['notification-stats'] })
     },
   })
@@ -106,10 +165,6 @@ export function NotificationProvider({
         }))
       )
       queryClient.invalidateQueries({ queryKey: ['notification-stats'] })
-      toast({
-        title: 'Success',
-        description: 'All notifications marked as read',
-      })
     },
   })
 
@@ -117,9 +172,13 @@ export function NotificationProvider({
   const deleteNotificationMutation = useMutation({
     mutationFn: apiClient.deleteNotification,
     onSuccess: (_, id) => {
-      setNotifications((prev) =>
-        prev.filter((notification) => notification.id !== id)
-      )
+      console.log('[NotificationContext] Delete notification - ID:', id)
+      setNotifications((prev) => {
+        console.log('[NotificationContext] Before delete update:', prev)
+        const updated = prev.filter((notification) => notification.id !== id)
+        console.log('[NotificationContext] After delete update:', updated)
+        return updated
+      })
       queryClient.invalidateQueries({ queryKey: ['notification-stats'] })
     },
   })
@@ -140,7 +199,7 @@ export function NotificationProvider({
     <NotificationContext.Provider
       value={{
         notifications,
-        unreadCount: statsData?.unread || 0,
+        unreadCount: statsData?.unreadCount || 0,
         isLoading,
         markAsRead,
         markAllAsRead,

@@ -24,11 +24,14 @@ export const createTicket = asyncHandler(
     const userId = req.user!.userId
 
     let finalDepartmentId = departmentId
+    let wasAssignedByAI = false // Initialize flag
 
     // If no department specified, use AI to assign based on title and description
     if (!departmentId) {
       try {
-        finalDepartmentId = await assignTicketByAI(title, description)
+        const aiAssignment = await assignTicketByAI(title, description)
+        finalDepartmentId = aiAssignment.departmentId
+        wasAssignedByAI = aiAssignment.assignedByAI // Set the flag
       } catch (error) {
         console.error('AI department assignment failed:', error)
         // If AI fails, assign to a default department or require manual assignment
@@ -61,6 +64,7 @@ export const createTicket = asyncHandler(
         fileUrls,
         departmentId: finalDepartmentId,
         createdById: userId,
+        assignedByAI: wasAssignedByAI, // Save the flag
       },
       include: {
         department: {
@@ -781,10 +785,15 @@ export const assignTicket = asyncHandler(
       throw new ApiError('Ticket not found', 404)
     }
 
-    // Check if agent is in the same department (admins can be assigned to any department)
-    if (agent.role === 'AGENT' && agent.departmentId !== ticket.departmentId) {
+    // If the user performing the action is an Admin, they can assign to any agent in any department.
+    // If the user performing the action is an Agent, they can only assign to another agent in the same department as the ticket.
+    if (
+      req.user?.role !== 'ADMIN' &&
+      agent.role === 'AGENT' &&
+      agent.departmentId !== ticket.departmentId
+    ) {
       throw new ApiError(
-        'Agent must be in the same department as the ticket',
+        'Agents can only be assigned to tickets within their own department.',
         400
       )
     }

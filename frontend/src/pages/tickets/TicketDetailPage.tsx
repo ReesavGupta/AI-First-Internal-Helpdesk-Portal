@@ -37,6 +37,7 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
+  DropdownMenuSeparator,
 } from '@/components/ui/dropdown-menu'
 import { useAuth } from '@/contexts/AuthContext'
 import { useWebSocket } from '@/contexts/WebsocketContext'
@@ -71,8 +72,15 @@ export function TicketDetailPage() {
 
   const { data: ticketResponse, isLoading } = useQuery({
     queryKey: ['ticket', id],
-    queryFn: () => apiClient.getTicket(id),
+    queryFn: () => apiClient.getTicket(id!),
     enabled: !!id,
+  })
+
+  // Fetch all agents if the current user is an ADMIN
+  const { data: allAgents, isLoading: isLoadingAgents } = useQuery({
+    queryKey: ['allAgents'],
+    queryFn: () => apiClient.getAllAgents(),
+    enabled: !!user && user.role === 'ADMIN',
   })
 
   const { data: aiSuggestions } = useQuery({
@@ -236,7 +244,30 @@ export function TicketDetailPage() {
                 <Edit className="mr-2 h-4 w-4" />
                 Edit Ticket
               </DropdownMenuItem>
-              {canAssign && (
+              {canAssign && user?.role === 'ADMIN' && allAgents && (
+                <>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem
+                    onClick={() => assignTicketMutation.mutate(user?.id!)}
+                  >
+                    <User className="mr-2 h-4 w-4" />
+                    Assign to Me
+                  </DropdownMenuItem>
+                  {allAgents
+                    .filter((agent: any) => agent.id !== user?.id) // Don't show "Assign to Me" twice
+                    .map((agent: any) => (
+                      <DropdownMenuItem
+                        key={agent.id}
+                        onClick={() => assignTicketMutation.mutate(agent.id)}
+                      >
+                        <User className="mr-2 h-4 w-4" />
+                        Assign to {agent.name}
+                      </DropdownMenuItem>
+                    ))}
+                  <DropdownMenuSeparator />
+                </>
+              )}
+              {canAssign && user?.role === 'AGENT' && (
                 <DropdownMenuItem
                   onClick={() => assignTicketMutation.mutate(user?.id!)}
                 >

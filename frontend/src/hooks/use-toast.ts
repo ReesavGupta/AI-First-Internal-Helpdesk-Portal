@@ -2,17 +2,27 @@
 
 import * as React from 'react'
 
-import type { ToastActionElement, ToastProps } from '@/components/ui/sonner'
+// Define types locally as they are specific to this custom toast implementation.
 
-const TOAST_LIMIT = 1
-const TOAST_REMOVE_DELAY = 1000000
-
-type ToasterToast = ToastProps & {
-  id: string
+// Properties that can be passed to the custom toast() function.
+interface CustomToastProps {
   title?: React.ReactNode
   description?: React.ReactNode
-  action?: ToastActionElement
+  action?: React.ReactElement // Simplified: A react element for the action
+  duration?: number
+  // Allow any other properties that might be needed by the specific toast rendering logic
+  [key: string]: any
 }
+
+// The internal representation of a toast object in the state, including generated/managed fields.
+type ToasterToast = CustomToastProps & {
+  id: string
+  open?: boolean // Managed internally for display state
+  onOpenChange?: (open: boolean) => void // Managed internally
+}
+
+const TOAST_LIMIT = 3
+const TOAST_REMOVE_DELAY = 5000
 
 const actionTypes = {
   ADD_TOAST: 'ADD_TOAST',
@@ -33,7 +43,7 @@ type ActionType = typeof actionTypes
 type Action =
   | {
       type: ActionType['ADD_TOAST']
-      toast: ToasterToast
+      toast: ToasterToast // This is our internal ToasterToast type
     }
   | {
       type: ActionType['UPDATE_TOAST']
@@ -75,6 +85,7 @@ export const reducer = (state: State, action: Action): State => {
     case 'ADD_TOAST':
       return {
         ...state,
+        // Add new toast and ensure limit is respected
         toasts: [action.toast, ...state.toasts].slice(0, TOAST_LIMIT),
       }
 
@@ -101,20 +112,14 @@ export const reducer = (state: State, action: Action): State => {
         ...state,
         toasts: state.toasts.map((t) =>
           t.id === toastId || toastId === undefined
-            ? {
-                ...t,
-                open: false,
-              }
+            ? { ...t, open: false } // Mark as not open before removal queue
             : t
         ),
       }
     }
     case 'REMOVE_TOAST':
       if (action.toastId === undefined) {
-        return {
-          ...state,
-          toasts: [],
-        }
+        return { ...state, toasts: [] } // Clear all toasts
       }
       return {
         ...state,
@@ -134,28 +139,40 @@ function dispatch(action: Action) {
   })
 }
 
-type Toast = Omit<ToasterToast, 'id'>
+// Type for the props accepted by the exported toast() function.
+// Excludes internally managed properties like id, open, onOpenChange.
+type ToastFunctionProps = Omit<ToasterToast, 'id' | 'open' | 'onOpenChange'>
 
-function toast({ ...props }: Toast) {
+function toast({ ...props }: ToastFunctionProps) {
   const id = genId()
 
-  const update = (props: ToasterToast) =>
+  const update = (updatedProps: Partial<ToastFunctionProps>) =>
     dispatch({
       type: 'UPDATE_TOAST',
-      toast: { ...props, id },
+      // Ensure only valid properties for ToasterToast are passed, merging with existing state for this id might be safer.
+      toast: {
+        ...memoryState.toasts.find((t) => t.id === id),
+        ...updatedProps,
+        id,
+      } as ToasterToast,
     })
   const dismiss = () => dispatch({ type: 'DISMISS_TOAST', toastId: id })
 
+  // Construct the full ToasterToast object for internal state
+  const newToast: ToasterToast = {
+    ...props, // User-provided properties (title, description, action, etc.)
+    id,
+    open: true, // Default to open
+    onOpenChange: (openState: boolean) => {
+      if (!openState) {
+        dismiss() // Or directly dispatch REMOVE_TOAST if dismiss also queues removal
+      }
+    },
+  }
+
   dispatch({
     type: 'ADD_TOAST',
-    toast: {
-      ...props,
-      id,
-      open: true,
-      onOpenChange: (open: any) => {
-        if (!open) dismiss()
-      },
-    },
+    toast: newToast,
   })
 
   return {

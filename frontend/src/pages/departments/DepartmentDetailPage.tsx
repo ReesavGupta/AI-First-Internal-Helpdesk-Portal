@@ -134,20 +134,20 @@ export function DepartmentDetailPage() {
             <Users className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{stats?.totalAgents || 0}</div>
+            <div className="text-2xl font-bold">
+              {stats?.overview?.totalAgents || 0}
+            </div>
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">
-              Active Tickets
-            </CardTitle>
+            <CardTitle className="text-sm font-medium">Open Tickets</CardTitle>
             <Ticket className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
-              {stats?.activeTickets || 0}
+              {stats?.overview?.openTickets || 0}
             </div>
           </CardContent>
         </Card>
@@ -155,13 +155,15 @@ export function DepartmentDetailPage() {
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">
-              Avg Resolution
+              Resolution Rate
             </CardTitle>
             <BarChart3 className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
-              {stats?.avgResolutionTime || 'N/A'}
+              {stats?.overview?.resolutionRate !== undefined
+                ? `${stats.overview.resolutionRate}%`
+                : 'N/A'}
             </div>
           </CardContent>
         </Card>

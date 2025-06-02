@@ -1,9 +1,26 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 'use client'
 
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { BarChart3, TrendingUp, Users, Clock, CheckCircle } from 'lucide-react'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import {
+  BarChart3,
+  TrendingUp,
+  Users,
+  Clock,
+  CheckCircle,
+  AlertTriangle,
+  ClipboardList,
+  Lightbulb,
+  CheckSquare,
+} from 'lucide-react'
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+  CardDescription,
+} from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import {
   Select,
@@ -16,18 +33,68 @@ import { useAuth } from '@/contexts/AuthContext'
 import { apiClient } from '@/lib/api'
 import { LoadingSpinner } from '@/components/ui/loading-spinner'
 import { Link } from 'react-router-dom'
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
+
+// Define more specific types based on the actual API response
+interface InsightSummary {
+  totalTickets: number
+  autoAssigned: number
+  accurateAssignments: number // Percentage
+  avgResolutionTime: string // e.g., "2.5 hours" or "N/A"
+  satisfactionScore: string | number // e.g., 4.5 or "N/A"
+}
+
+interface Pattern {
+  id: string
+  pattern: string
+  frequency: number
+  impact: 'High' | 'Medium' | 'Low'
+  suggestion: string
+}
+
+interface DepartmentInsight {
+  name: string
+  accuracy: number // Percentage
+  volume: number
+}
+
+interface Recommendation {
+  id: string
+  title: string
+  description: string
+  priority: 'High' | 'Medium' | 'Low'
+  estimatedImpact: string
+}
+
+interface AIInsightsData {
+  summary: InsightSummary
+  patterns: Pattern[]
+  departments: DepartmentInsight[]
+  recommendations: Recommendation[]
+}
+
+// Add ApiResponse interface to represent the common envelope
+interface ApiResponse<T> {
+  success: boolean
+  message: string
+  data: T
+}
 
 export function AIInsightsPage() {
   const { user } = useAuth()
   const [timeRange, setTimeRange] = useState('7d')
 
-  const { data: insights, isLoading } = useQuery({
+  const {
+    data: apiResponse, // Renamed from insightsData for clarity
+    isLoading,
+    error,
+  } = useQuery<ApiResponse<AIInsightsData>, Error>({
+    // Updated type to ApiResponse<AIInsightsData>
     queryKey: ['ai-insights', timeRange],
     queryFn: () => apiClient.getAIInsights({ timeRange }),
     enabled: user?.role === 'ADMIN',
   })
 
-  // Only allow admins
   if (user?.role !== 'ADMIN') {
     return (
       <div className="text-center py-12">
@@ -52,88 +119,74 @@ export function AIInsightsPage() {
     )
   }
 
-  const mockInsights = {
-    summary: {
-      totalTickets: 156,
-      autoAssigned: 89,
-      accurateAssignments: 82,
-      avgResolutionTime: '2.3 hours',
-      satisfactionScore: 4.2,
-    },
-    patterns: [
-      {
-        id: '1',
-        pattern: 'Login issues spike on Monday mornings',
-        frequency: 23,
-        impact: 'High',
-        suggestion: 'Prepare additional IT support on Monday mornings',
-      },
-      {
-        id: '2',
-        pattern: 'Password reset requests increase after holidays',
-        frequency: 18,
-        impact: 'Medium',
-        suggestion: 'Send proactive password reset reminders before holidays',
-      },
-      {
-        id: '3',
-        pattern: 'Software installation requests cluster in Q4',
-        frequency: 15,
-        impact: 'Medium',
-        suggestion: 'Plan software deployment schedule for Q4',
-      },
-    ],
-    departments: [
-      { name: 'IT Support', accuracy: 94, volume: 45 },
-      { name: 'HR', accuracy: 87, volume: 23 },
-      { name: 'Finance', accuracy: 91, volume: 18 },
-      { name: 'Operations', accuracy: 89, volume: 31 },
-    ],
-    recommendations: [
-      {
-        id: '1',
-        title: 'Improve FAQ Coverage',
-        description:
-          'Add FAQs for the top 5 recurring ticket types to reduce ticket volume by ~20%',
-        priority: 'High',
-        estimatedImpact: '20% reduction in tickets',
-      },
-      {
-        id: '2',
-        title: 'Department Keyword Optimization',
-        description:
-          'Update IT Support keywords to improve auto-assignment accuracy',
-        priority: 'Medium',
-        estimatedImpact: '5% improvement in accuracy',
-      },
-      {
-        id: '3',
-        title: 'Agent Training',
-        description:
-          'Provide additional training for HR department ticket handling',
-        priority: 'Low',
-        estimatedImpact: 'Improved satisfaction scores',
-      },
-    ],
+  if (error) {
+    return (
+      <Alert
+        variant="destructive"
+        className="mt-4"
+      >
+        <AlertTriangle className="h-4 w-4" />
+        <AlertTitle>Error Fetching AI Insights</AlertTitle>
+        <AlertDescription>
+          {error.message || 'An unexpected error occurred.'}
+        </AlertDescription>
+      </Alert>
+    )
   }
 
-  const data = insights || mockInsights
+  // Adjusted check for no data or unsuccessful response
+  if (!apiResponse || !apiResponse.success || !apiResponse.data) {
+    let alertTitle = 'No Data Available'
+    let alertDescription =
+      'AI insights data could not be loaded or is not available for the selected period.'
+    let alertVariant: 'default' | 'destructive' | 'warning' | undefined =
+      'default'
+
+    if (apiResponse) {
+      if (!apiResponse.success) {
+        alertTitle = 'Operation Unsuccessful'
+        alertDescription =
+          apiResponse.message || 'Failed to retrieve AI insights.'
+        alertVariant = 'warning'
+      } else if (!apiResponse.data) {
+        alertDescription =
+          "Received a response but no insights data was found in the 'data' field."
+        alertVariant = 'default'
+      }
+    } else {
+      alertDescription = 'No response received from the server for AI insights.'
+      alertVariant = 'default'
+    }
+
+    return (
+      <Alert
+        variant={alertVariant as "default" | "destructive"}
+        className="mt-4"
+      >
+        <AlertTriangle className="h-4 w-4" />
+        <AlertTitle>{alertTitle}</AlertTitle>
+        <AlertDescription>{alertDescription}</AlertDescription>
+      </Alert>
+    )
+  }
+
+  const data = apiResponse.data // Extract the actual insights data from the envelope
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
+    <div className="space-y-8 p-4 md:p-6">
+      <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold">AI Insights</h1>
+          <h1 className="text-3xl font-bold">AI-Powered Insights</h1>
           <p className="text-muted-foreground">
-            Analytics and patterns detected by AI
+            Analytics, patterns, and recommendations detected by our AI engine.
           </p>
         </div>
         <Select
           value={timeRange}
           onValueChange={setTimeRange}
         >
-          <SelectTrigger className="w-48">
-            <SelectValue />
+          <SelectTrigger className="w-full md:w-48">
+            <SelectValue placeholder="Select time range" />
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="1d">Last 24 hours</SelectItem>
@@ -145,34 +198,38 @@ export function AIInsightsPage() {
       </div>
 
       {/* Summary Stats */}
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-5">
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Total Tickets</CardTitle>
-            <BarChart3 className="h-4 w-4 text-muted-foreground" />
+            <BarChart3 className="h-5 w-5 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">
+            <div className="text-3xl font-bold">
               {data.summary.totalTickets}
             </div>
-            <p className="text-xs text-muted-foreground">In selected period</p>
+            <p className="text-xs text-muted-foreground">
+              In selected period ({timeRange})
+            </p>
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Auto-Assigned</CardTitle>
-            <Users className="h-4 w-4 text-muted-foreground" />
+            <Users className="h-5 w-5 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">
+            <div className="text-3xl font-bold">
               {data.summary.autoAssigned}
             </div>
             <p className="text-xs text-muted-foreground">
-              {Math.round(
-                (data.summary.autoAssigned / data.summary.totalTickets) * 100
-              )}
-              % of total
+              {data.summary.totalTickets > 0
+                ? `${Math.round(
+                    (data.summary.autoAssigned / data.summary.totalTickets) *
+                      100
+                  )}% of total`
+                : '0% of total'}
             </p>
           </CardContent>
         </Card>
@@ -182,146 +239,198 @@ export function AIInsightsPage() {
             <CardTitle className="text-sm font-medium">
               Assignment Accuracy
             </CardTitle>
-            <CheckCircle className="h-4 w-4 text-muted-foreground" />
+            <CheckSquare className="h-5 w-5 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">
+            <div className="text-3xl font-bold">
               {data.summary.accurateAssignments}%
             </div>
-            <p className="text-xs text-muted-foreground">Correctly assigned</p>
+            <p className="text-xs text-muted-foreground">
+              AI assignment correctness
+            </p>
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">
-              Avg Resolution
+              Avg Resolution Time
             </CardTitle>
-            <Clock className="h-4 w-4 text-muted-foreground" />
+            <Clock className="h-5 w-5 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">
+            <div className="text-3xl font-bold">
               {data.summary.avgResolutionTime}
             </div>
-            <p className="text-xs text-muted-foreground">Average time</p>
+            <p className="text-xs text-muted-foreground">
+              For resolved tickets
+            </p>
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Satisfaction</CardTitle>
-            <TrendingUp className="h-4 w-4 text-muted-foreground" />
+            <CardTitle className="text-sm font-medium">
+              Satisfaction Score
+            </CardTitle>
+            <TrendingUp className="h-5 w-5 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">
-              {data.summary.satisfactionScore}/5
+            <div className="text-3xl font-bold">
+              {typeof data.summary.satisfactionScore === 'number'
+                ? `${data.summary.satisfactionScore}/5`
+                : data.summary.satisfactionScore}
             </div>
-            <p className="text-xs text-muted-foreground">Average rating</p>
+            <p className="text-xs text-muted-foreground">
+              Overall user satisfaction
+            </p>
           </CardContent>
         </Card>
       </div>
 
-      <div className="grid gap-6 lg:grid-cols-2">
+      <div className="grid gap-6 lg:grid-cols-2 xl:grid-cols-3">
         {/* Detected Patterns */}
-        <Card>
+        <Card className="xl:col-span-2">
           <CardHeader>
-            <CardTitle>Detected Patterns</CardTitle>
+            <CardTitle className="flex items-center">
+              <ClipboardList className="h-6 w-6 mr-2 text-primary" /> Detected
+              Patterns
+            </CardTitle>
+            <CardDescription>
+              Key trends and anomalies identified by AI in the ticket data.
+            </CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="space-y-4">
-              {data.patterns.map((pattern: any) => (
-                <div
-                  key={pattern.id}
-                  className="border rounded-lg p-4"
-                >
-                  <div className="flex items-start justify-between mb-2">
-                    <h4 className="font-medium">{pattern.pattern}</h4>
-                    <Badge
-                      variant={
-                        pattern.impact === 'High'
-                          ? 'destructive'
-                          : pattern.impact === 'Medium'
-                          ? 'default'
-                          : 'secondary'
-                      }
-                    >
-                      {pattern.impact}
-                    </Badge>
+            {data.patterns && data.patterns.length > 0 ? (
+              <div className="space-y-4">
+                {data.patterns.map((pattern) => (
+                  <div
+                    key={pattern.id}
+                    className="border rounded-lg p-4 shadow-sm hover:shadow-md transition-shadow"
+                  >
+                    <div className="flex items-start justify-between mb-2">
+                      <h4 className="font-semibold text-base">
+                        {pattern.pattern}
+                      </h4>
+                      <Badge
+                        variant={
+                          pattern.impact === 'High'
+                            ? 'destructive'
+                            : pattern.impact === 'Medium'
+                            ? 'default'
+                            : 'secondary'
+                        }
+                      >
+                        {pattern.impact} Impact
+                      </Badge>
+                    </div>
+                    <p className="text-sm text-muted-foreground mb-1">
+                      Frequency:{' '}
+                      <span className="font-medium">{pattern.frequency}</span>{' '}
+                      tickets
+                    </p>
+                    <p className="text-sm text-muted-foreground">
+                      Suggestion: {pattern.suggestion}
+                    </p>
                   </div>
-                  <p className="text-sm text-muted-foreground mb-2">
-                    Frequency: {pattern.frequency} occurrences
-                  </p>
-                  <p className="text-sm">{pattern.suggestion}</p>
-                </div>
-              ))}
-            </div>
+                ))}
+              </div>
+            ) : (
+              <p className="text-muted-foreground text-center py-4">
+                No significant patterns detected for this period.
+              </p>
+            )}
           </CardContent>
         </Card>
 
         {/* Department Performance */}
         <Card>
           <CardHeader>
-            <CardTitle>Department Performance</CardTitle>
+            <CardTitle className="flex items-center">
+              <Users className="h-6 w-6 mr-2 text-primary" /> Department
+              Insights
+            </CardTitle>
+            <CardDescription>
+              Ticket volume and AI assignment accuracy per department.
+            </CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="space-y-4">
-              {data.departments.map((dept: any) => (
-                <div
-                  key={dept.name}
-                  className="flex items-center justify-between"
-                >
-                  <div>
-                    <p className="font-medium">{dept.name}</p>
-                    <p className="text-sm text-muted-foreground">
-                      {dept.volume} tickets
+            {data.departments && data.departments.length > 0 ? (
+              <div className="space-y-3">
+                {data.departments.map((dept) => (
+                  <div
+                    key={dept.name}
+                    className="border rounded-lg p-3 shadow-sm"
+                  >
+                    <div className="flex justify-between items-center mb-1">
+                      <h5 className="font-medium">{dept.name}</h5>
+                      <Badge variant="outline">{dept.volume} tickets</Badge>
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      AI Assignment Accuracy: {dept.accuracy}%
                     </p>
                   </div>
-                  <div className="text-right">
-                    <p className="font-medium">{dept.accuracy}%</p>
-                    <p className="text-sm text-muted-foreground">accuracy</p>
-                  </div>
-                </div>
-              ))}
-            </div>
+                ))}
+              </div>
+            ) : (
+              <p className="text-muted-foreground text-center py-4">
+                No department-specific data available.
+              </p>
+            )}
           </CardContent>
         </Card>
       </div>
 
-      {/* Recommendations */}
+      {/* Actionable Recommendations */}
       <Card>
         <CardHeader>
-          <CardTitle>AI Recommendations</CardTitle>
+          <CardTitle className="flex items-center">
+            <Lightbulb className="h-6 w-6 mr-2 text-primary" /> Actionable
+            Recommendations
+          </CardTitle>
+          <CardDescription>
+            AI-suggested actions to optimize helpdesk performance and user
+            satisfaction.
+          </CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="space-y-4">
-            {data.recommendations.map((rec: any) => (
-              <div
-                key={rec.id}
-                className="border rounded-lg p-4"
-              >
-                <div className="flex items-start justify-between mb-2">
-                  <h4 className="font-medium">{rec.title}</h4>
-                  <Badge
-                    variant={
-                      rec.priority === 'High'
-                        ? 'destructive'
-                        : rec.priority === 'Medium'
-                        ? 'default'
-                        : 'secondary'
-                    }
-                  >
-                    {rec.priority} Priority
-                  </Badge>
+          {data.recommendations && data.recommendations.length > 0 ? (
+            <div className="space-y-4">
+              {data.recommendations.map((reco) => (
+                <div
+                  key={reco.id}
+                  className="border rounded-lg p-4 shadow-sm hover:shadow-lg transition-shadow bg-gradient-to-r from-background to-secondary/10"
+                >
+                  <div className="flex items-start justify-between mb-2">
+                    <h4 className="font-semibold text-lg">{reco.title}</h4>
+                    <Badge
+                      variant={
+                        reco.priority === 'High'
+                          ? 'destructive'
+                          : reco.priority === 'Medium'
+                          ? 'default'
+                          : reco.priority === 'Low'
+                          ? 'secondary'
+                          : 'default'
+                      }
+                    >
+                      {reco.priority} Priority
+                    </Badge>
+                  </div>
+                  <p className="text-sm text-muted-foreground mb-2">
+                    {reco.description}
+                  </p>
+                  <p className="text-xs text-green-600 dark:text-green-400 font-medium">
+                    Est. Impact: {reco.estimatedImpact}
+                  </p>
                 </div>
-                <p className="text-sm text-muted-foreground mb-2">
-                  {rec.description}
-                </p>
-                <p className="text-sm font-medium text-green-600">
-                  Estimated Impact: {rec.estimatedImpact}
-                </p>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          ) : (
+            <p className="text-muted-foreground text-center py-4">
+              No specific recommendations available at this time.
+            </p>
+          )}
         </CardContent>
       </Card>
     </div>

@@ -8,6 +8,7 @@ import {
   getAIStatus,
   batchProcessTickets,
   testAI,
+  getAIInsights,
 } from '../controllers/ai.controller'
 import {
   authenticate,
@@ -69,7 +70,7 @@ router.get(
  * @desc    Get AI pattern insights and analytics
  * @access  Private (Admin only)
  */
-router.get('/insights', checkAIRateLimit, requireAdmin, getPatternInsights)
+router.get('/insights', checkAIRateLimit, requireAdmin, getAIInsights)
 
 /**
  * @route   POST /api/ai/batch-process

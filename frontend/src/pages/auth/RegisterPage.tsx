@@ -175,34 +175,33 @@ export function RegisterPage() {
               )}
             </div>
 
-            {(selectedRole === 'AGENT' || selectedRole === 'ADMIN') &&
-              departments && (
-                <div className="space-y-2">
-                  <Label htmlFor="department">Department</Label>
-                  <Select
-                    onValueChange={(value) => setValue('departmentId', value)}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select your department" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {departments.map((dept: any) => (
-                        <SelectItem
-                          key={dept.id}
-                          value={dept.id}
-                        >
-                          {dept.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  {errors.departmentId && (
-                    <p className="text-sm text-destructive">
-                      {errors.departmentId.message}
-                    </p>
-                  )}
-                </div>
-              )}
+            {selectedRole === 'AGENT' && departments && (
+              <div className="space-y-2">
+                <Label htmlFor="department">Department</Label>
+                <Select
+                  onValueChange={(value) => setValue('departmentId', value)}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select your department" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {departments.map((dept: any) => (
+                      <SelectItem
+                        key={dept.id}
+                        value={dept.id}
+                      >
+                        {dept.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                {errors.departmentId && (
+                  <p className="text-sm text-destructive">
+                    {errors.departmentId.message}
+                  </p>
+                )}
+              </div>
+            )}
 
             <Button
               type="submit"

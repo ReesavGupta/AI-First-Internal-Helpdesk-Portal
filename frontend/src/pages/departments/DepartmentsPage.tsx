@@ -222,11 +222,11 @@ export function DepartmentsPage() {
                     <div className="flex items-center space-x-4 mt-2 text-sm text-muted-foreground">
                       <div className="flex items-center">
                         <Users className="mr-1 h-4 w-4" />
-                        {department.users?.length || 0} agents
+                        {department._count?.users || 0} agents
                       </div>
                       <div className="flex items-center">
                         <Ticket className="mr-1 h-4 w-4" />
-                        {department.tickets?.length || 0} tickets
+                        {department._count?.tickets || 0} tickets
                       </div>
                     </div>
                   </div>

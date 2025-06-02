@@ -12,6 +12,7 @@ import departmentRoutes from './routes/department.routes'
 import faqRoutes from './routes/faq.routes'
 import notificationRoutes from './routes/notification.routes'
 import aiRoutes from './routes/ai.routes'
+import userRoutes from './routes/user.routes'
 // import searchRoutes from './routes/search.routes'
 // import analyticsRoutes from './routes/analytics' i do not want analytics
 
@@ -86,6 +87,7 @@ app.use('/api/departments', departmentRoutes)
 app.use('/api/faq', faqRoutes)
 app.use('/api/notifications', notificationRoutes)
 app.use('/api/ai', aiRoutes)
+app.use('/api/users', userRoutes)
 // app.use('/api/search', searchRoutes)
 // app.use('/api/analytics', analyticsRoutes)
 
