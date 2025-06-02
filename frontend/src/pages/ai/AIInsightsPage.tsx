@@ -1,14 +1,11 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 'use client'
 
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import {
   BarChart3,
-  TrendingUp,
   Users,
   Clock,
-  CheckCircle,
   AlertTriangle,
   ClipboardList,
   Lightbulb,
@@ -160,7 +157,7 @@ export function AIInsightsPage() {
 
     return (
       <Alert
-        variant={alertVariant as "default" | "destructive"}
+        variant={alertVariant as 'default' | 'destructive'}
         className="mt-4"
       >
         <AlertTriangle className="h-4 w-4" />
@@ -268,7 +265,7 @@ export function AIInsightsPage() {
           </CardContent>
         </Card>
 
-        <Card>
+        {/* <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">
               Satisfaction Score
@@ -285,7 +282,7 @@ export function AIInsightsPage() {
               Overall user satisfaction
             </p>
           </CardContent>
-        </Card>
+        </Card> */}
       </div>
 
       <div className="grid gap-6 lg:grid-cols-2 xl:grid-cols-3">

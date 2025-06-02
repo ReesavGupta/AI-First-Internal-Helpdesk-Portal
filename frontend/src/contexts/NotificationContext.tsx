@@ -1,7 +1,7 @@
 'use client'
 
-import type React from 'react'
-import { createContext, useContext, useEffect, useState } from 'react'
+import React from 'react'
+import { createContext, useContext, useEffect } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { apiClient } from '@/lib/api'
 import type { Notification } from '@/types'
@@ -26,110 +26,95 @@ export function NotificationProvider({
 }: {
   children: React.ReactNode
 }) {
-  const [notifications, setNotifications] = useState<Notification[]>([])
   const queryClient = useQueryClient()
   const { toast } = useToast()
 
-  // Get notifications
+  // Main query for fetching notifications
   const {
     data: notificationsData,
     isLoading,
     refetch,
   } = useQuery({
     queryKey: ['notifications'],
-    queryFn: () => apiClient.getNotifications({ limit: 50 }),
+    queryFn: () => apiClient.getNotifications({ limit: 50 }), // Fetch more for local cache
   })
 
-  // Get notification stats
+  // Derived state for notifications list
+  const notifications = React.useMemo(
+    () => notificationsData?.notifications || [],
+    [notificationsData]
+  )
+
+  // Query for notification stats (unread count)
   const { data: statsData } = useQuery({
     queryKey: ['notification-stats'],
     queryFn: apiClient.getNotificationStats,
-    refetchInterval: 30000, // Refetch every 30 seconds
   })
 
+  // WebSocket listeners
   useEffect(() => {
-    if (notificationsData?.notifications) {
-      // Log if any fetched notification is missing an ID
-      notificationsData.notifications.forEach((n: Notification) => {
-        if (!n.id) {
-          console.error(
-            '[NotificationContext] Fetched notification missing ID:',
-            n
-          )
-        }
-      })
-      setNotifications(notificationsData.notifications)
-    }
-  }, [notificationsData])
+    const handleWebSocketMessage = (event: CustomEvent) => {
+      const payload = event.detail
+      console.log('[NotificationContext] WebSocket message received:', payload)
 
-  // Listen for WebSocket notifications
-  useEffect(() => {
-    const handleNotification = (event: CustomEvent) => {
-      const wsMessagePayload = event.detail
-
-      // Check the type of the WebSocket message payload
-      if (
-        wsMessagePayload &&
-        wsMessagePayload.type === 'notification_deleted'
-      ) {
-        const { notificationId } = wsMessagePayload
-        if (notificationId) {
-          console.log(
-            '[NotificationContext] WebSocket received notification_deleted for ID:',
-            notificationId
-          )
-          setNotifications((prev) =>
-            prev.filter((n) => n.id !== notificationId)
-          )
-          queryClient.invalidateQueries({ queryKey: ['notification-stats'] })
-        } else {
-          console.error(
-            '[NotificationContext] WebSocket notification_deleted message missing notificationId:',
-            wsMessagePayload
-          )
-        }
-      } else if (wsMessagePayload && wsMessagePayload.id) {
-        // Assume it's a new/updated full Notification object if it has an 'id'
-        const newNotification = wsMessagePayload as Notification
-        console.log(
-          '[NotificationContext] WebSocket received new/updated notification:',
-          newNotification
-        )
-
-        setNotifications((prev) => {
-          const existingIndex = prev.findIndex(
-            (n) => n.id === newNotification.id
-          )
-          if (existingIndex !== -1) {
-            const updatedNotifications = [...prev]
-            updatedNotifications[existingIndex] = newNotification
-            return updatedNotifications
-          } else {
-            return [newNotification, ...prev]
-          }
-        })
-        queryClient.invalidateQueries({ queryKey: ['notification-stats'] })
-        toast({
-          title: 'New Notification',
-          description: newNotification.message,
-        })
-      } else {
-        // Handle other types of messages or log an error for unexpected structure
+      if (!payload || !payload.type) {
         console.error(
-          '[NotificationContext] Received WebSocket message with unexpected structure:',
-          wsMessagePayload
+          '[NotificationContext] Invalid WebSocket payload:',
+          payload
         )
+        return
+      }
+
+      switch (payload.type) {
+        case 'new_notification': // Generic new notification from WS
+        case 'notification_created': // Explicitly created notification
+        case 'TICKET_CREATED':
+        case 'TICKET_ASSIGNED':
+        case 'TICKET_STATUS_UPDATED':
+        case 'TICKET_RESPONSE':
+        case 'SLA_WARNING':
+        case 'ASSIGNMENT': // This might be a custom one from your backend
+        case 'PATTERN_DETECTED':
+        case 'SYSTEM_NOTIFICATION':
+          // This payload IS the notification object
+          toast({
+            title: payload.title || 'Notification', // Assuming title might exist directly on payload
+            description: payload.message, // Use payload.message directly
+          })
+          queryClient.invalidateQueries({ queryKey: ['notifications'] })
+          queryClient.invalidateQueries({ queryKey: ['notification-stats'] })
+          break
+        case 'notification_read':
+        case 'all_notifications_read':
+        case 'notification_deleted':
+          // These actions are already handled optimistically and then re-fetched.
+          // We might still want to invalidate if the WS message indicates a change
+          // initiated by *another* client instance for the same user, but for now,
+          // the optimistic updates + onSettled refetch should cover most cases.
+          // If direct server push for these is needed, we can invalidate here too.
+          console.log(
+            `[NotificationContext] WS event type ${payload.type} received, potentially handled by optimistic update.`
+          )
+          // Optionally, still invalidate if you want to ensure data sync from WS even after optimistic updates
+          queryClient.invalidateQueries({ queryKey: ['notifications'] })
+          queryClient.invalidateQueries({ queryKey: ['notification-stats'] })
+          break
+        default:
+          console.warn(
+            '[NotificationContext] Unhandled WebSocket event type:',
+            payload.type
+          )
       }
     }
 
     window.addEventListener(
       'ws-notification',
-      handleNotification as EventListener
+      handleWebSocketMessage as EventListener
     )
     return () => {
       window.removeEventListener(
         'ws-notification',
-        handleNotification as EventListener
+        handleWebSocketMessage as EventListener
       )
     }
   }, [queryClient, toast])
@@ -137,18 +122,75 @@ export function NotificationProvider({
   // Mark as read mutation
   const markAsReadMutation = useMutation({
     mutationFn: apiClient.markNotificationRead,
-    onSuccess: (_, id) => {
-      console.log('[NotificationContext] Mark as read - ID:', id)
-      setNotifications((prev) => {
-        console.log('[NotificationContext] Before markAsRead update:', prev)
-        const updated = prev.map((notification) =>
-          notification.id === id
-            ? { ...notification, read: true, readAt: new Date().toISOString() }
-            : notification
+    onMutate: async (id: string) => {
+      await queryClient.cancelQueries({ queryKey: ['notifications'] })
+      await queryClient.cancelQueries({ queryKey: ['notification-stats'] })
+
+      const previousNotifications = queryClient.getQueryData<{
+        notifications: Notification[]
+        pagination: any
+      }>(['notifications'])
+      const previousStats = queryClient.getQueryData<any>([
+        'notification-stats',
+      ])
+
+      queryClient.setQueryData(
+        ['notifications'],
+        (
+          old: { notifications: Notification[]; pagination: any } | undefined
+        ) => {
+          if (!old) return old
+          return {
+            ...old,
+            notifications: old.notifications.map((n) =>
+              n.id === id
+                ? { ...n, read: true, readAt: new Date().toISOString() }
+                : n
+            ),
+          }
+        }
+      )
+      queryClient.setQueryData(['notification-stats'], (old: any) => {
+        if (!old || typeof old.unreadCount !== 'number') return old
+        const notificationToUpdate = previousNotifications?.notifications?.find(
+          (n) => n.id === id
         )
-        console.log('[NotificationContext] After markAsRead update:', updated)
-        return updated
+        // Only decrement if the notification was actually unread
+        return {
+          ...old,
+          unreadCount:
+            notificationToUpdate && !notificationToUpdate.read
+              ? Math.max(0, old.unreadCount - 1)
+              : old.unreadCount,
+        }
       })
+
+      return { previousNotifications, previousStats }
+    },
+    onError: (err, id, context) => {
+      if (context?.previousNotifications) {
+        queryClient.setQueryData(
+          ['notifications'],
+          context.previousNotifications
+        )
+      }
+      if (context?.previousStats) {
+        queryClient.setQueryData(['notification-stats'], context.previousStats)
+      }
+      toast({
+        title: 'Error',
+        description: 'Failed to mark notification as read.',
+        variant: 'destructive',
+      })
+    },
+    onSuccess: () => {
+      toast({
+        title: 'Success',
+        description: 'Notification marked as read.',
+      })
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: ['notifications'] })
       queryClient.invalidateQueries({ queryKey: ['notification-stats'] })
     },
   })
@@ -156,14 +198,65 @@ export function NotificationProvider({
   // Mark all as read mutation
   const markAllAsReadMutation = useMutation({
     mutationFn: apiClient.markAllNotificationsRead,
-    onSuccess: () => {
-      setNotifications((prev) =>
-        prev.map((notification) => ({
-          ...notification,
-          read: true,
-          readAt: new Date().toISOString(),
-        }))
+    onMutate: async () => {
+      await queryClient.cancelQueries({ queryKey: ['notifications'] })
+      await queryClient.cancelQueries({ queryKey: ['notification-stats'] })
+
+      const previousNotifications = queryClient.getQueryData<{
+        notifications: Notification[]
+        pagination: any
+      }>(['notifications'])
+      const previousStats = queryClient.getQueryData<any>([
+        'notification-stats',
+      ])
+
+      queryClient.setQueryData(
+        ['notifications'],
+        (
+          old: { notifications: Notification[]; pagination: any } | undefined
+        ) => {
+          if (!old) return old
+          return {
+            ...old,
+            notifications: old.notifications.map((n) => ({
+              ...n,
+              read: true,
+              readAt: new Date().toISOString(),
+            })),
+          }
+        }
       )
+      queryClient.setQueryData(['notification-stats'], (old: any) => {
+        if (!old) return old
+        return { ...old, unreadCount: 0 }
+      })
+
+      return { previousNotifications, previousStats }
+    },
+    onError: (err, variables, context) => {
+      if (context?.previousNotifications) {
+        queryClient.setQueryData(
+          ['notifications'],
+          context.previousNotifications
+        )
+      }
+      if (context?.previousStats) {
+        queryClient.setQueryData(['notification-stats'], context.previousStats)
+      }
+      toast({
+        title: 'Error',
+        description: 'Failed to mark all notifications as read.',
+        variant: 'destructive',
+      })
+    },
+    onSuccess: (data) => {
+      toast({
+        title: 'Success',
+        description: `${data.count} notifications marked as read.`,
+      })
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: ['notifications'] })
       queryClient.invalidateQueries({ queryKey: ['notification-stats'] })
     },
   })
@@ -171,19 +264,80 @@ export function NotificationProvider({
   // Delete notification mutation
   const deleteNotificationMutation = useMutation({
     mutationFn: apiClient.deleteNotification,
-    onSuccess: (_, id) => {
-      console.log('[NotificationContext] Delete notification - ID:', id)
-      setNotifications((prev) => {
-        console.log('[NotificationContext] Before delete update:', prev)
-        const updated = prev.filter((notification) => notification.id !== id)
-        console.log('[NotificationContext] After delete update:', updated)
-        return updated
+    onMutate: async (id: string) => {
+      await queryClient.cancelQueries({ queryKey: ['notifications'] })
+      await queryClient.cancelQueries({ queryKey: ['notification-stats'] })
+
+      const previousNotifications = queryClient.getQueryData<{
+        notifications: Notification[]
+        pagination: any
+      }>(['notifications'])
+      const previousStats = queryClient.getQueryData<any>([
+        'notification-stats',
+      ])
+
+      let wasUnread = false
+
+      queryClient.setQueryData(
+        ['notifications'],
+        (
+          old: { notifications: Notification[]; pagination: any } | undefined
+        ) => {
+          if (!old) return old
+          const notificationToRemove = old.notifications.find(
+            (n) => n.id === id
+          )
+          if (notificationToRemove && !notificationToRemove.read) {
+            wasUnread = true
+          }
+          return {
+            ...old,
+            notifications: old.notifications.filter((n) => n.id !== id),
+          }
+        }
+      )
+      queryClient.setQueryData(['notification-stats'], (old: any) => {
+        if (!old || typeof old.unreadCount !== 'number') return old
+        return {
+          ...old,
+          unreadCount: wasUnread
+            ? Math.max(0, old.unreadCount - 1)
+            : old.unreadCount,
+        }
       })
+
+      return { previousNotifications, previousStats }
+    },
+    onError: (err, id, context) => {
+      if (context?.previousNotifications) {
+        queryClient.setQueryData(
+          ['notifications'],
+          context.previousNotifications
+        )
+      }
+      if (context?.previousStats) {
+        queryClient.setQueryData(['notification-stats'], context.previousStats)
+      }
+      toast({
+        title: 'Error',
+        description: 'Failed to delete notification.',
+        variant: 'destructive',
+      })
+    },
+    onSuccess: () => {
+      toast({
+        title: 'Success',
+        description: 'Notification deleted.',
+      })
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: ['notifications'] })
       queryClient.invalidateQueries({ queryKey: ['notification-stats'] })
     },
   })
 
   const markAsRead = async (id: string) => {
+    // No local state update needed here as useMutation's onMutate handles it
     await markAsReadMutation.mutateAsync(id)
   }
 
@@ -198,9 +352,9 @@ export function NotificationProvider({
   return (
     <NotificationContext.Provider
       value={{
-        notifications,
+        notifications, // Use memoized notifications
         unreadCount: statsData?.unreadCount || 0,
-        isLoading,
+        isLoading: isLoading && !notificationsData, // Consider loading only if no data yet
         markAsRead,
         markAllAsRead,
         deleteNotification,

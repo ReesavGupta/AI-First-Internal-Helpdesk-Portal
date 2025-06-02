@@ -19,8 +19,8 @@ export function DepartmentDetailPage() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
   const { user } = useAuth()
-  const [agentsPage, setAgentsPage] = useState(1)
-  const [ticketsPage, setTicketsPage] = useState(1)
+  const [agentsPage /*setAgentsPage*/] = useState(1)
+  const [ticketsPage /*setTicketsPage*/] = useState(1)
 
   const { data: department, isLoading } = useQuery({
     queryKey: ['department', id],

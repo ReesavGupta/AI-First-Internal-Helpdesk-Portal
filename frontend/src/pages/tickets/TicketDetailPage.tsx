@@ -59,32 +59,31 @@ export function TicketDetailPage() {
   const { joinTicket, leaveTicket } = useWebSocket()
   const { toast } = useToast()
   const queryClient = useQueryClient()
-  const [isEditing, setIsEditing] = useState(false)
-
-  if (!id) {
-    return (
-      <div className="flex items-center justify-center h-screen">
-        <LoadingSpinner size="lg" />
-        <p className="ml-2 text-muted-foreground">Loading ticket details...</p>
-      </div>
-    )
-  }
+  const [, /*isEditing*/ setIsEditing] = useState(false)
 
   const { data: ticketResponse, isLoading } = useQuery({
-    queryKey: ['ticket', id],
+    queryKey: ['ticket', id!],
     queryFn: () => apiClient.getTicket(id!),
     enabled: !!id,
   })
 
   // Fetch all agents if the current user is an ADMIN
-  const { data: allAgents, isLoading: isLoadingAgents } = useQuery({
+  const { data: allAgents /*isLoading: isLoadingAgents*/ } = useQuery({
     queryKey: ['allAgents'],
     queryFn: () => apiClient.getAllAgents(),
-    enabled: !!user && user.role === 'ADMIN',
+    enabled: !!user && user.role === 'ADMIN' && !!id,
+  })
+
+  const { data: departmentAgentsQuery } = useQuery({
+    queryKey: ['department-agents', ticketResponse?.data?.departmentId],
+    queryFn: () =>
+      apiClient.getDepartmentAgents(ticketResponse!.data!.departmentId!, 1), // Fetch page 1
+    enabled:
+      !!user && user.role === 'ADMIN' && !!ticketResponse?.data?.departmentId,
   })
 
   const { data: aiSuggestions } = useQuery({
-    queryKey: ['ai-suggestions', id],
+    queryKey: ['ai-suggestions', id!],
     queryFn: () => apiClient.getAISuggestions(id!),
     enabled: !!id && (user?.role === 'AGENT' || user?.role === 'ADMIN'),
   })
@@ -109,19 +108,22 @@ export function TicketDetailPage() {
   // Listen for real-time updates
   React.useEffect(() => {
     const handleTicketUpdate = () => {
-      queryClient.invalidateQueries({ queryKey: ['ticket', id] })
+      if (id) {
+        queryClient.invalidateQueries({ queryKey: ['ticket', id] })
+      }
     }
-
-    window.addEventListener('ws-ticket-update', handleTicketUpdate)
-    return () =>
-      window.removeEventListener('ws-ticket-update', handleTicketUpdate)
+    if (id) {
+      window.addEventListener('ws-ticket-update', handleTicketUpdate)
+      return () =>
+        window.removeEventListener('ws-ticket-update', handleTicketUpdate)
+    }
   }, [id, queryClient])
 
   const createResponseMutation = useMutation({
     mutationFn: (data: ResponseForm) =>
       apiClient.createTicketResponse(id!, data),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['ticket', id] })
+      queryClient.invalidateQueries({ queryKey: ['ticket', id!] })
       reset()
       toast({
         title: 'Success',
@@ -132,25 +134,62 @@ export function TicketDetailPage() {
 
   const updateStatusMutation = useMutation({
     mutationFn: (status: string) => apiClient.updateTicketStatus(id!, status),
+    onMutate: async (newStatus: string) => {
+      await queryClient.cancelQueries({ queryKey: ['ticket', id!] })
+      const previousTicketData = queryClient.getQueryData(['ticket', id!])
+      queryClient.setQueryData(['ticket', id!], (oldData: any) => {
+        if (!oldData || !oldData.data) return oldData
+        return {
+          ...oldData,
+          data: {
+            ...oldData.data,
+            status: newStatus,
+          },
+        }
+      })
+      return { previousTicketData }
+    },
+    onError: (err, newStatus, context) => {
+      if (context?.previousTicketData) {
+        queryClient.setQueryData(['ticket', id!], context.previousTicketData)
+      }
+      toast({
+        title: 'Error',
+        description: 'Failed to update ticket status. Please try again.',
+        variant: 'destructive',
+      })
+    },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['ticket', id] })
       toast({
         title: 'Success',
         description: 'Ticket status updated',
       })
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: ['ticket', id!] })
+      queryClient.invalidateQueries({ queryKey: ['ticketStats'] })
     },
   })
 
   const assignTicketMutation = useMutation({
     mutationFn: (agentId: string) => apiClient.assignTicket(id!, agentId),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['ticket', id] })
+      queryClient.invalidateQueries({ queryKey: ['ticket', id!] })
       toast({
         title: 'Success',
         description: 'Ticket assigned successfully',
       })
     },
   })
+
+  if (!id) {
+    return (
+      <div className="flex items-center justify-center h-screen">
+        <LoadingSpinner size="lg" />
+        <p className="ml-2 text-muted-foreground">Loading ticket details...</p>
+      </div>
+    )
+  }
 
   if (isLoading) {
     return (
@@ -244,7 +283,7 @@ export function TicketDetailPage() {
                 <Edit className="mr-2 h-4 w-4" />
                 Edit Ticket
               </DropdownMenuItem>
-              {canAssign && user?.role === 'ADMIN' && allAgents && (
+              {canAssign && user?.role === 'ADMIN' && (
                 <>
                   <DropdownMenuSeparator />
                   <DropdownMenuItem
@@ -253,17 +292,36 @@ export function TicketDetailPage() {
                     <User className="mr-2 h-4 w-4" />
                     Assign to Me
                   </DropdownMenuItem>
-                  {allAgents
-                    .filter((agent: any) => agent.id !== user?.id) // Don't show "Assign to Me" twice
-                    .map((agent: any) => (
-                      <DropdownMenuItem
-                        key={agent.id}
-                        onClick={() => assignTicketMutation.mutate(agent.id)}
-                      >
-                        <User className="mr-2 h-4 w-4" />
-                        Assign to {agent.name}
-                      </DropdownMenuItem>
-                    ))}
+                  {departmentAgentsQuery?.agents &&
+                  ticketResponse?.data?.departmentId
+                    ? departmentAgentsQuery.agents
+                        .filter((agent: any) => agent.id !== user?.id)
+                        .map((agent: any) => (
+                          <DropdownMenuItem
+                            key={agent.id}
+                            onClick={() =>
+                              assignTicketMutation.mutate(agent.id)
+                            }
+                          >
+                            <User className="mr-2 h-4 w-4" />
+                            Assign to {agent.name} (Dept)
+                          </DropdownMenuItem>
+                        ))
+                    : allAgents
+                    ? allAgents
+                        .filter((agent: any) => agent.id !== user?.id)
+                        .map((agent: any) => (
+                          <DropdownMenuItem
+                            key={agent.id}
+                            onClick={() =>
+                              assignTicketMutation.mutate(agent.id)
+                            }
+                          >
+                            <User className="mr-2 h-4 w-4" />
+                            Assign to {agent.name}
+                          </DropdownMenuItem>
+                        ))
+                    : null}
                   <DropdownMenuSeparator />
                 </>
               )}

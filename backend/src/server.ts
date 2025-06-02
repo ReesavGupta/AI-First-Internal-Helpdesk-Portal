@@ -114,8 +114,8 @@ process.on('SIGINT', async () => {
 })
 
 // Start server
-server.listen(PORT, () => {
-  console.log(`🚀 Server running on port ${PORT}`)
+server.listen(Number(PORT), '0.0.0.0', () => {
+  console.log(`🚀 Server running on host 0.0.0.0 port ${PORT}`)
   console.log(`📊 Health check: http://localhost:${PORT}/health`)
   console.log(
     `🔌 WebSocket server running on port ${process.env.WS_PORT || 5001}`

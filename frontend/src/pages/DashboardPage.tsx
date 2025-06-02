@@ -27,24 +27,77 @@ import { formatDistanceToNow } from 'date-fns'
 export function DashboardPage() {
   const { user } = useAuth()
 
-  // Get recent tickets based on user role
-  const { data: ticketsData, isLoading: ticketsLoading } = useQuery({
-    queryKey: ['dashboard-tickets'],
-    queryFn: () => {
-      if (user?.role === 'EMPLOYEE') {
-        return apiClient.getMyTickets({ limit: 5 })
-      } else {
-        return apiClient.getAssignedTickets({ limit: 5 })
-      }
-    },
+  // Query for recent tickets (for the list display)
+  const { data: recentTicketsData, isLoading: recentTicketsLoading } = useQuery(
+    {
+      queryKey: ['dashboard-recent-tickets', user?.id],
+      queryFn: () => {
+        const params = { limit: 5 }
+        if (user?.role === 'EMPLOYEE') {
+          return apiClient.getMyTickets(params)
+        } else if (user?.role === 'AGENT' || user?.role === 'ADMIN') {
+          return apiClient.getAssignedTickets(params)
+        }
+        return Promise.resolve({
+          tickets: [],
+          pagination: {
+            totalCount: 0,
+            currentPage: 1,
+            totalPages: 0,
+            hasNextPage: false,
+            hasPrevPage: false,
+          },
+        })
+      },
+      enabled: !!user,
+    }
+  )
+  const recentTickets = recentTicketsData?.tickets || []
+
+  // Helper function for fetching ticket statistics
+  const fetchTicketStats = async (status?: string) => {
+    const filters: { status?: string } = {}
+    if (status) {
+      filters.status = status
+    }
+
+    let response
+    if (user?.role === 'EMPLOYEE') {
+      response = await apiClient.getMyTickets(filters)
+    } else if (user?.role === 'AGENT' || user?.role === 'ADMIN') {
+      response = await apiClient.getAssignedTickets(filters)
+    } else {
+      return { count: 0 } // Default for other roles or if user is null
+    }
+    return { count: response.pagination?.totalCount || 0 }
+  }
+
+  // Queries for statistics cards
+  const { data: totalTicketsStats, isLoading: totalTicketsLoading } = useQuery({
+    queryKey: ['ticketStats', 'total', user?.id],
+    queryFn: () => fetchTicketStats(),
+    enabled: !!user,
   })
 
-  // Get departments if user is agent/admin
-  const { data: departments } = useQuery({
-    queryKey: ['departments'],
-    queryFn: apiClient.getDepartments,
-    enabled: user?.role === 'AGENT' || user?.role === 'ADMIN',
+  const { data: openTicketsStats, isLoading: openTicketsLoading } = useQuery({
+    queryKey: ['ticketStats', 'OPEN', user?.id],
+    queryFn: () => fetchTicketStats('OPEN'),
+    enabled: !!user,
   })
+
+  const { data: inProgressTicketsStats, isLoading: inProgressTicketsLoading } =
+    useQuery({
+      queryKey: ['ticketStats', 'IN_PROGRESS', user?.id],
+      queryFn: () => fetchTicketStats('IN_PROGRESS'),
+      enabled: !!user,
+    })
+
+  const { data: resolvedTicketsStats, isLoading: resolvedTicketsLoading } =
+    useQuery({
+      queryKey: ['ticketStats', 'RESOLVED', user?.id],
+      queryFn: () => fetchTicketStats('RESOLVED'),
+      enabled: !!user,
+    })
 
   // Get AI status
   const { data: aiStatus } = useQuery({
@@ -80,15 +133,20 @@ export function DashboardPage() {
     }
   }
 
-  if (ticketsLoading) {
+  const pageIsLoading =
+    recentTicketsLoading ||
+    totalTicketsLoading ||
+    openTicketsLoading ||
+    inProgressTicketsLoading ||
+    resolvedTicketsLoading
+
+  if (pageIsLoading) {
     return (
       <div className="flex items-center justify-center h-64">
         <LoadingSpinner size="lg" />
       </div>
     )
   }
-
-  const tickets = ticketsData?.tickets || []
 
   return (
     <div className="space-y-6">
@@ -108,7 +166,7 @@ export function DashboardPage() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
-              {ticketsData?.totalTickets || 0}
+              {totalTicketsStats?.count || 0}
             </div>
             <p className="text-xs text-muted-foreground">
               {user?.role === 'EMPLOYEE' ? 'Your tickets' : 'Assigned to you'}
@@ -123,7 +181,7 @@ export function DashboardPage() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
-              {tickets.filter((t: any) => t.status === 'OPEN').length}
+              {openTicketsStats?.count || 0}
             </div>
             <p className="text-xs text-muted-foreground">Needs attention</p>
           </CardContent>
@@ -136,7 +194,7 @@ export function DashboardPage() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
-              {tickets.filter((t: any) => t.status === 'IN_PROGRESS').length}
+              {inProgressTicketsStats?.count || 0}
             </div>
             <p className="text-xs text-muted-foreground">Being worked on</p>
           </CardContent>
@@ -149,7 +207,7 @@ export function DashboardPage() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
-              {tickets.filter((t: any) => t.status === 'RESOLVED').length}
+              {resolvedTicketsStats?.count || 0}
             </div>
             <p className="text-xs text-muted-foreground">Recently completed</p>
           </CardContent>
@@ -168,7 +226,7 @@ export function DashboardPage() {
             </CardDescription>
           </CardHeader>
           <CardContent>
-            {tickets.length === 0 ? (
+            {recentTickets.length === 0 ? (
               <div className="text-center py-6">
                 <p className="text-muted-foreground">No tickets found</p>
                 <Link to="/tickets/new">
@@ -177,7 +235,7 @@ export function DashboardPage() {
               </div>
             ) : (
               <div className="space-y-4">
-                {tickets.map((ticket: any) => (
+                {recentTickets.map((ticket: any) => (
                   <div
                     key={ticket.id}
                     className="flex items-center space-x-4"

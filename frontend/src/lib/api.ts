@@ -123,6 +123,7 @@ class ApiClient {
     }
     const query = params.toString() ? `?${params.toString()}` : ''
     const myTickets = await this.request<any>(`/tickets/my-tickets${query}`)
+    console.log(`this is myTickets:`, myTickets)
     return myTickets.data
   }
 

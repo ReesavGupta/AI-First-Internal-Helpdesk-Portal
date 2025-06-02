@@ -145,7 +145,7 @@ export function NotificationsPage() {
         <div className="space-y-3">
           {filteredNotifications
             .filter((notification) => notification.id)
-            .map((notification, index) => (
+            .map((notification /*, index*/) => (
               <Card
                 key={`notification-${notification.id}`}
                 className={`transition-all hover:shadow-md ${

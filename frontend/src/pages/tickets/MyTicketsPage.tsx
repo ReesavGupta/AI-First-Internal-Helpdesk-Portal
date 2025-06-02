@@ -15,14 +15,12 @@ import {
 } from '@/components/ui/select'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
-import { useAuth } from '@/contexts/AuthContext'
 import { apiClient } from '@/lib/api'
 import { LoadingSpinner } from '@/components/ui/loading-spinner'
 import type { TicketFilters } from '@/types'
 import { formatDistanceToNow } from 'date-fns'
 
 export function MyTicketsPage() {
-  const { user } = useAuth()
   const [filters, setFilters] = useState<TicketFilters>({
     page: 1,
     limit: 10,

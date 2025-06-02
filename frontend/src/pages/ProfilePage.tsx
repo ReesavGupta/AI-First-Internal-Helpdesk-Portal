@@ -4,7 +4,7 @@ import { useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
-import { User, Shield, Building, Camera } from 'lucide-react'
+import { User, Shield, Building } from 'lucide-react'
 import { Button } from '../components/ui/button'
 import { Input } from '../components/ui/input'
 import { Label } from '../components/ui/label'
@@ -90,7 +90,7 @@ export function ProfilePage() {
         title: 'Success',
         description: 'Password updated successfully',
       })
-    } catch (error) {
+    } catch {
       toast({
         title: 'Error',
         description: 'Failed to update password',
@@ -255,20 +255,16 @@ export function ProfilePage() {
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="flex items-center space-x-4">
-                <div className="relative">
-                  <Avatar className="h-16 w-16">
-                    <AvatarImage src={user?.avatarUrl || '/placeholder.svg'} />
-                    <AvatarFallback className="text-lg">
+                <div className="relative w-24 h-24 mx-auto">
+                  <Avatar className="w-full h-full text-3xl">
+                    <AvatarImage
+                      src={user?.avatarUrl || undefined}
+                      alt={user?.name}
+                    />
+                    <AvatarFallback>
                       {user?.name?.charAt(0).toUpperCase()}
                     </AvatarFallback>
                   </Avatar>
-                  <Button
-                    variant="outline"
-                    size="icon"
-                    className="absolute -bottom-1 -right-1 h-6 w-6 rounded-full"
-                  >
-                    <Camera className="h-3 w-3" />
-                  </Button>
                 </div>
                 <div>
                   <h3 className="font-semibold">{user?.name}</h3>
@@ -322,14 +318,6 @@ export function ProfilePage() {
               <CardTitle>Account Settings</CardTitle>
             </CardHeader>
             <CardContent className="space-y-3">
-              <div className="flex items-center justify-between">
-                <span className="text-sm font-medium">Email Notifications</span>
-                <Badge variant="outline">Enabled</Badge>
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="text-sm font-medium">Two-Factor Auth</span>
-                <Badge variant="secondary">Disabled</Badge>
-              </div>
               <div className="flex items-center justify-between">
                 <span className="text-sm font-medium">Account Status</span>
                 <Badge variant="default">Active</Badge>

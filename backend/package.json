@@ -5,7 +5,9 @@
   "main": "server.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "dev": "tsx src/server.ts"
+    "dev": "tsx src/server.ts",
+    "build": "npx prisma generate && tsc",
+    "start": "node dist/src/server.js"
   },
   "repository": {
     "type": "git",

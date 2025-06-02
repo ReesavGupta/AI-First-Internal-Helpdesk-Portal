@@ -93,7 +93,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         description: 'Logged out successfully',
       })
     },
-    onError: (error: Error) => {
+    onError: (/*error: Error*/) => {
       // Even if logout fails on server, clear local state
       apiClient.setToken(null)
       setUser(null)
