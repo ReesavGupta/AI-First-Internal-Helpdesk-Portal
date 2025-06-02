@@ -545,139 +545,125 @@ Response:`
   }
 }
 
+// AI-powered question answering (chatbot functionality)
 export const getAIAnswer = async (
-  question: string
+  question: string,
+  contextChunks?: string[] // Optional: Context from RAG system
 ): Promise<{
   answer: string
   confidence: number
-  sources: string[]
+  sources: string[] // Consider adding RAG source documents here
   suggestTicket: boolean
 }> => {
   try {
-    // Search both FAQs and Documents in parallel
-    const [faqs, documents] = await Promise.all([
-      searchFAQs(question),
-      searchDocuments(question),
-    ])
+    let contextPrompt = ''
+    const sources: string[] = [] // Initialize sources array
 
-    let answer = ''
-    let confidence = 0
-    let sources: string[] = []
-    let suggestTicket = false
+    if (contextChunks && contextChunks.length > 0) {
+      // TODO: Be more specific about where contextChunks come from if possible (e.g., filenames)
+      // For now, just join them.
+      const contextText = contextChunks.join('\n\n---\n\n')
+      contextPrompt = `
+You have been provided with the following context from internal documents:
+---
+${contextText}
+---
+Please prioritize using this context to answer the user's question.
+If the context does not directly answer the question, use your general knowledge.
+Indicate if your answer is based on the provided documents.
+`
+      // We might want to add the source document filenames to the 'sources' array here
+      // This depends on how `findSimilarChunks` structures its output and what's passed to `getAIAnswer`.
+      // For now, we'll assume sources are handled by the existing FAQ search or can be added.
+      // Example: sources.push("Internal Document: " + chunk.sourceDocument.filename);
+    }
 
-    if (faqs.length > 0 || documents.length > 0) {
-      // Combine FAQ and document context
-      const faqContext = faqs
-        .map((faq) => `Q: ${faq.question}\nA: ${faq.answer}`)
+    // Try to find relevant FAQs
+    const relevantFAQs = await searchFAQs(question)
+    if (relevantFAQs.length > 0) {
+      const faqContext = relevantFAQs
+        .map((faq) => `FAQ: ${faq.question}\nAnswer: ${faq.answer}`)
         .join('\n\n')
-
-      const docContext = documents
-        .map(
-          (doc) =>
-            `Document: ${doc.title}\nContent: ${doc.content.substring(
-              0,
-              500
-            )}...`
-        )
-        .join('\n\n---\n\n')
-
-      const combinedContext = [faqContext, docContext]
-        .filter(Boolean)
-        .join('\n\n===DOCUMENT SEPARATOR===\n\n')
-
-      const prompt = `
-Based on the following company FAQs and internal documents, answer the user's question:
-
-User Question: ${question}
-
-Available Information:
-${combinedContext}
-
-Instructions:
-1. Provide a clear, helpful answer using the available information
-2. If the information directly answers the question, provide a complete response
-3. If the information is related but incomplete, provide what you can and suggest creating a ticket for more specific help
-4. If no relevant information is found, politely say so and suggest creating a support ticket
-5. Be professional and concise
-6. Reference which source(s) you used (FAQ vs Company Document)
-
-Answer:`
-
-      const completion = await openai.chat.completions.create({
-        model: 'gpt-3.5-turbo',
-        messages: [{ role: 'user', content: prompt }],
-        temperature: 0.3,
-        max_tokens: 400,
-      })
-
-      answer = completion.choices[0]?.message?.content?.trim() || ''
-
-      // Calculate confidence based on available sources
-      if (faqs.length > 0 && documents.length > 0) {
-        confidence = 0.9 // High confidence with both sources
-      } else if (faqs.length > 0 || documents.length > 0) {
-        confidence = 0.8 // Good confidence with one source
-      } else {
-        confidence = 0.6 // Lower confidence
-      }
-
-      // Build sources array
-      sources = [
-        ...faqs.map((faq) => `FAQ: ${faq.question}`),
-        ...documents.map((doc) => `Document: ${doc.title}`),
-      ]
-    } else {
-      // Fallback to general AI knowledge
-      const prompt = `
-Answer the following question in a helpful and professional manner for an internal company helpdesk context:
-
-Question: ${question}
-
-Instructions:
-1. Provide a helpful general answer if possible
-2. If the question is company-specific, suggest creating a support ticket
-3. Keep the answer professional and concise
-4. Be honest about limitations
-
-Answer:`
-
-      const completion = await openai.chat.completions.create({
-        model: 'gpt-3.5-turbo',
-        messages: [{ role: 'user', content: prompt }],
-        temperature: 0.5,
-        max_tokens: 300,
-      })
-
-      answer = completion.choices[0]?.message?.content?.trim() || ''
-      confidence = 0.5
-      sources = ['AI General Knowledge']
-      suggestTicket = true
+      contextPrompt += `\n\nRelevant FAQs found:\n${faqContext}\n`
+      relevantFAQs.forEach((faq) => sources.push(`FAQ: ${faq.question}`))
     }
 
-    // Determine if we should suggest creating a ticket
+    const systemMessage = `
+You are an AI Helpdesk Assistant. Your goal is to provide accurate and helpful answers.
+${contextPrompt}
+If the question seems to be a request that requires creating a support ticket (e.g., "my printer is broken", "I need software installed"),
+respond by stating that a ticket should be created and briefly explain why.
+Do not invent information. If you don't know the answer or the provided context isn't sufficient, say so.
+Keep answers concise and to the point.
+`
+
+    // console.log("System Message to LLM:", systemMessage); // For debugging prompt construction
+    // console.log("User Question to LLM:", question);
+
+    const completion = await openai.chat.completions.create({
+      model: process.env.OPENAI_CHAT_MODEL || 'gpt-4-turbo-preview',
+      messages: [
+        { role: 'system', content: systemMessage },
+        { role: 'user', content: question },
+      ],
+      temperature: 0.5, // Slightly increased for more nuanced answers with context
+      max_tokens: 300, // Increased max_tokens for potentially longer contextual answers
+    })
+
+    const aiResponse = completion.choices[0]?.message?.content?.trim() || ''
+
+    // Basic confidence scoring (can be improved)
+    let confidence = 0.7 // Base confidence
     if (
-      confidence < 0.7 ||
-      answer.toLowerCase().includes('create a ticket') ||
-      answer.toLowerCase().includes('contact support') ||
-      answer.toLowerCase().includes('not enough information')
+      aiResponse.toLowerCase().includes("i don't know") ||
+      aiResponse.toLowerCase().includes("i'm not sure")
     ) {
-      suggestTicket = true
+      confidence = 0.3
+    } else if (
+      contextChunks &&
+      contextChunks.length > 0 &&
+      (aiResponse.toLowerCase().includes('based on the document') ||
+        aiResponse.toLowerCase().includes('according to the document'))
+    ) {
+      confidence = 0.9 // Higher confidence if based on provided RAG context
+    } else if (
+      relevantFAQs.length > 0 &&
+      (aiResponse.toLowerCase().includes('faq') ||
+        aiResponse.toLowerCase().includes('frequently asked question'))
+    ) {
+      confidence = 0.85 // Higher confidence if based on FAQ
     }
+
+    // Suggest creating a ticket if AI response indicates it
+    const suggestTicketKeywords = [
+      'create a ticket',
+      'should create a ticket',
+      'log a ticket',
+      'submit a ticket',
+      'raise a ticket',
+      'open a ticket',
+      'support ticket',
+    ]
+    const suggestTicket = suggestTicketKeywords.some((keyword) =>
+      aiResponse.toLowerCase().includes(keyword)
+    )
 
     return {
-      answer,
-      confidence,
-      sources,
+      answer: aiResponse,
+      confidence: parseFloat(confidence.toFixed(2)),
+      sources: sources, // Return sources (FAQs for now, RAG sources to be added)
       suggestTicket,
     }
   } catch (error) {
-    console.error('AI answer bot failed:', error)
+    console.error('Error in getAIAnswer:', error)
+    // Return a generic error response or rethrow
+    // For now, let's return a default "error" answer
     return {
       answer:
-        "I apologize, but I'm having trouble processing your question right now. Please try creating a support ticket for assistance.",
-      confidence: 0,
+        'I encountered an issue trying to understand that. Please try rephrasing or ask something else.',
+      confidence: 0.1,
       sources: [],
-      suggestTicket: true,
+      suggestTicket: true, // Suggest ticket on error
     }
   }
 }

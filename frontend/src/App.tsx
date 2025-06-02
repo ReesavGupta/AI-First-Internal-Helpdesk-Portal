@@ -18,6 +18,7 @@ import { NotificationsPage } from '@/pages/NotificationsPage'
 import { ProfilePage } from '@/pages/ProfilePage'
 import { AIAssistantPage } from '@/pages/ai/AIAssistantPage'
 import { AIInsightsPage } from '@/pages/ai/AIInsightsPage'
+import { DocumentManagementPage } from '@/pages/admin/DocumentManagementPage'
 import { LoadingSpinner } from '@/components/ui/loading-spinner'
 import { Toaster } from '@/components/ui/sonner'
 
@@ -114,6 +115,10 @@ function App() {
           <Route
             path="/ai/insights"
             element={<AIInsightsPage />}
+          />
+          <Route
+            path="/admin/documents"
+            element={<DocumentManagementPage />}
           />
           <Route
             path="*"

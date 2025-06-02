@@ -12,6 +12,10 @@ import {
 } from '../services/ai.service'
 import { prisma } from '../../prisma/client'
 import { TicketStatus } from '@prisma/client'
+import {
+  getEmbedding as getRagEmbedding,
+  findSimilarChunks,
+} from '../services/rag.service'
 
 // Helper to calculate start date based on timeRange (e.g., '7d', '30d')
 const calculateStartDate = (timeRange: string): Date => {
@@ -151,47 +155,87 @@ export const getPatternInsights = async (
 }
 
 // AI-powered question answering (chatbot functionality)
-export const askAI = async (
-  req: Request,
-  res: Response,
-  next: NextFunction
-) => {
-  try {
-    const { question } = req.body
+export const askAI = asyncHandler(
+  async (req: Request, res: Response, next: NextFunction) => {
+    const { question, ticketId } = req.body // Assuming ticketId might be relevant for context later
 
     if (
       !question ||
       typeof question !== 'string' ||
       question.trim().length === 0
     ) {
-      throw new ApiError(
-        'Question is required and must be a non-empty string',
-        400
+      return next(
+        new ApiError('Question is required and must be a non-empty string', 400)
       )
     }
 
-    if (question.length > 500) {
-      throw new ApiError('Question is too long (max 500 characters)', 400)
+    if (question.length > 1000) {
+      // Increased max length slightly for more complex queries
+      return next(
+        new ApiError('Question is too long (max 1000 characters)', 400)
+      )
     }
 
-    const result = await getAIAnswer(question.trim())
+    let ragContextChunks: string[] = []
+    let ragSourceDocumentInfos: { filename: string; metadata?: any }[] = []
 
-    res.json({
-      success: true,
-      message: 'AI answer generated successfully',
-      data: {
-        question: question.trim(),
-        answer: result.answer,
-        confidence: result.confidence,
-        sources: result.sources,
-        suggestTicket: result.suggestTicket,
-        timestamp: new Date().toISOString(),
-      },
-    })
-  } catch (error) {
-    next(error)
+    try {
+      console.log(`askAI: Received question: "${question}"`)
+      // Step 1: Get RAG context
+      const queryEmbedding = await getRagEmbedding(question.trim())
+
+      if (queryEmbedding.length > 0) {
+        // Using a slightly lower threshold for broader context gathering, can be tuned
+        const similarChunks = await findSimilarChunks(queryEmbedding, 5, 0.55)
+
+        if (similarChunks.length > 0) {
+          console.log(
+            `askAI: Found ${similarChunks.length} relevant chunks from RAG.`
+          )
+          ragContextChunks = similarChunks.map((item) => item.chunk.chunkText)
+          // Collect source document info for potential inclusion in the 'sources' response
+          ragSourceDocumentInfos = similarChunks.map((item) => ({
+            filename: item.chunk.ragSourceDocument.filename,
+            // You could add item.similarity or item.chunk.metadata here if desired
+            metadata: item.chunk.metadata,
+          }))
+        } else {
+          console.log('askAI: No relevant chunks found from RAG.')
+        }
+      } else {
+        console.log('askAI: Query embedding was empty, skipping RAG search.')
+      }
+
+      // Step 2: Call getAIAnswer with original question and RAG context (if any)
+      const result = await getAIAnswer(question.trim(), ragContextChunks)
+
+      // Enhance sources with RAG document info if context was used
+      // This simple check assumes if ragContextChunks were passed, they might have influenced the answer.
+      // A more robust way is if getAIAnswer itself can confirm context usage.
+      if (ragContextChunks.length > 0 && ragSourceDocumentInfos.length > 0) {
+        const ragSources = ragSourceDocumentInfos.map(
+          (info) => `Document: ${info.filename}`
+        )
+        // Add to existing sources, avoiding duplicates if any.
+        result.sources = Array.from(new Set([...result.sources, ...ragSources]))
+      }
+
+      res.status(200).json(
+        ApiResponse.success('AI answer generated successfully', {
+          question: question.trim(),
+          answer: result.answer,
+          confidence: result.confidence,
+          sources: result.sources,
+          suggestTicket: result.suggestTicket,
+          timestamp: new Date().toISOString(),
+        })
+      )
+    } catch (error) {
+      console.error('Error in askAI controller:', error)
+      next(new ApiError('Failed to get AI answer.', 500)) // Pass a generic error
+    }
   }
-}
+)
 
 // Get AI service status and statistics
 export const getAIStatus = async (
